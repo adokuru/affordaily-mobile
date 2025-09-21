@@ -50,20 +50,3 @@ export interface Notification {
   createdAt: Date;
   isRead: boolean;
 }
-
-export type RootStackParamList = {
-  MainTabs: undefined;
-  CheckIn: undefined;
-  CheckOut: undefined;
-  ExtendBooking: { bookingId: string };
-  VisitorPass: { bookingId: string };
-  RoomDetails: { roomId: string };
-};
-
-export type MainTabParamList = {
-  Dashboard: undefined;
-  CheckInTab: undefined;
-  CheckOutTab: undefined;
-  Rooms: undefined;
-  Settings: undefined;
-};

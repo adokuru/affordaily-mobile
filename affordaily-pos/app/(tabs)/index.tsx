@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
-import { colors, spacing, typography } from '../theme/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
+import { theme } from '@/constants/Theme';
+import { Button, Card } from '@/components/ui';
 
 export default function DashboardScreen() {
   const [stats] = useState({
@@ -22,11 +22,11 @@ export default function DashboardScreen() {
     totalVisitors: 8,
   });
 
-  const StatCard = ({ title, value, icon, color = colors.primary }: any) => (
+  const StatCard = ({ title, value, icon, color = theme.colors.primary }: any) => (
     <Card style={styles.statCard}>
       <View style={styles.statContent}>
         <View style={[styles.statIcon, { backgroundColor: color }]}>
-          <Ionicons name={icon} size={24} color={colors.white} />
+          <Ionicons name={icon} size={24} color={theme.colors.white} />
         </View>
         <View style={styles.statText}>
           <Text style={styles.statValue}>{value}</Text>
@@ -39,7 +39,7 @@ export default function DashboardScreen() {
   const QuickAction = ({ title, icon, onPress }: any) => (
     <TouchableOpacity style={styles.quickAction} onPress={onPress}>
       <View style={styles.quickActionIcon}>
-        <Ionicons name={icon} size={24} color={colors.secondary} />
+        <Ionicons name={icon} size={24} color={theme.colors.secondary} />
       </View>
       <Text style={styles.quickActionText}>{title}</Text>
     </TouchableOpacity>
@@ -57,25 +57,25 @@ export default function DashboardScreen() {
           title="Total Rooms"
           value={stats.totalRooms}
           icon="bed"
-          color={colors.info}
+          color={theme.colors.info}
         />
         <StatCard
           title="Occupied"
           value={stats.occupiedRooms}
           icon="person"
-          color={colors.warning}
+          color={theme.colors.warning}
         />
         <StatCard
           title="Available"
           value={stats.availableRooms}
           icon="checkmark-circle"
-          color={colors.success}
+          color={theme.colors.success}
         />
         <StatCard
           title="Pending Checkout"
           value={stats.pendingCheckouts}
           icon="time"
-          color={colors.error}
+          color={theme.colors.error}
         />
       </View>
 
@@ -85,12 +85,12 @@ export default function DashboardScreen() {
           <QuickAction
             title="Check In"
             icon="person-add"
-            onPress={() => {}}
+            onPress={() => router.push('/(tabs)/checkin')}
           />
           <QuickAction
             title="Check Out"
             icon="person-remove"
-            onPress={() => {}}
+            onPress={() => router.push('/(tabs)/checkout')}
           />
           <QuickAction
             title="Extend Stay"
@@ -110,7 +110,7 @@ export default function DashboardScreen() {
         <View style={styles.activityList}>
           <View style={styles.activityItem}>
             <View style={styles.activityIcon}>
-              <Ionicons name="person-add" size={16} color={colors.success} />
+              <Ionicons name="person-add" size={16} color={theme.colors.success} />
             </View>
             <View style={styles.activityContent}>
               <Text style={styles.activityText}>Guest checked in - Room 101</Text>
@@ -120,7 +120,7 @@ export default function DashboardScreen() {
           
           <View style={styles.activityItem}>
             <View style={styles.activityIcon}>
-              <Ionicons name="card" size={16} color={colors.info} />
+              <Ionicons name="card" size={16} color={theme.colors.info} />
             </View>
             <View style={styles.activityContent}>
               <Text style={styles.activityText}>Visitor pass issued - Room 205</Text>
@@ -130,7 +130,7 @@ export default function DashboardScreen() {
           
           <View style={styles.activityItem}>
             <View style={styles.activityIcon}>
-              <Ionicons name="person-remove" size={16} color={colors.warning} />
+              <Ionicons name="person-remove" size={16} color={theme.colors.warning} />
             </View>
             <View style={styles.activityContent}>
               <Text style={styles.activityText}>Guest checked out - Room 103</Text>
@@ -143,7 +143,7 @@ export default function DashboardScreen() {
       {stats.pendingCheckouts > 0 && (
         <Card style={styles.alertCard}>
           <View style={styles.alertHeader}>
-            <Ionicons name="warning" size={20} color={colors.error} />
+            <Ionicons name="warning" size={20} color={theme.colors.error} />
             <Text style={styles.alertTitle}>Pending Checkouts</Text>
           </View>
           <Text style={styles.alertText}>
@@ -152,7 +152,7 @@ export default function DashboardScreen() {
           </Text>
           <Button
             title="View Pending Checkouts"
-            onPress={() => {}}
+            onPress={() => router.push('/(tabs)/checkout')}
             variant="secondary"
             size="small"
           />
@@ -165,33 +165,33 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.gray[50],
+    backgroundColor: theme.colors.gray[50],
   },
   header: {
-    padding: spacing.lg,
-    backgroundColor: colors.white,
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomColor: theme.colors.gray[200],
   },
   headerTitle: {
-    fontSize: typography.fontSize.xxxl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.black,
-    marginBottom: spacing.xs,
+    fontSize: theme.typography.fontSize.xxxl,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.black,
+    marginBottom: theme.spacing.xs,
   },
   headerSubtitle: {
-    fontSize: typography.fontSize.md,
-    color: colors.gray[600],
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.gray[600],
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: spacing.md,
+    padding: theme.spacing.md,
     justifyContent: 'space-between',
   },
   statCard: {
     width: '48%',
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   statContent: {
     flexDirection: 'row',
@@ -203,26 +203,26 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: theme.spacing.md,
   },
   statText: {
     flex: 1,
   },
   statValue: {
-    fontSize: typography.fontSize.xxl,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.black,
+    fontSize: theme.typography.fontSize.xxl,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.black,
   },
   statTitle: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-    marginTop: spacing.xs,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[600],
+    marginTop: theme.spacing.xs,
   },
   sectionTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.black,
-    marginBottom: spacing.md,
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.black,
+    marginBottom: theme.spacing.md,
   },
   quickActionsGrid: {
     flexDirection: 'row',
@@ -232,77 +232,77 @@ const styles = StyleSheet.create({
   quickAction: {
     width: '48%',
     alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.gray[50],
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.gray[50],
     borderRadius: 8,
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   quickActionIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.white,
+    backgroundColor: theme.colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   quickActionText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.gray[700],
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.gray[700],
     textAlign: 'center',
   },
   activityList: {
-    marginTop: spacing.md,
+    marginTop: theme.spacing.md,
   },
   activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[100],
+    borderBottomColor: theme.colors.gray[100],
   },
   activityIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.gray[100],
+    backgroundColor: theme.colors.gray[100],
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: theme.spacing.md,
   },
   activityContent: {
     flex: 1,
   },
   activityText: {
-    fontSize: typography.fontSize.md,
-    color: colors.black,
-    marginBottom: spacing.xs,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.black,
+    marginBottom: theme.spacing.xs,
   },
   activityTime: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[500],
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[500],
   },
   alertCard: {
-    backgroundColor: colors.error + '10',
+    backgroundColor: theme.colors.error + '10',
     borderLeftWidth: 4,
-    borderLeftColor: colors.error,
+    borderLeftColor: theme.colors.error,
   },
   alertHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   alertTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.error,
-    marginLeft: spacing.sm,
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.error,
+    marginLeft: theme.spacing.sm,
   },
   alertText: {
-    fontSize: typography.fontSize.md,
-    color: colors.gray[700],
-    marginBottom: spacing.md,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.gray[700],
+    marginBottom: theme.spacing.md,
     lineHeight: 20,
   },
 });

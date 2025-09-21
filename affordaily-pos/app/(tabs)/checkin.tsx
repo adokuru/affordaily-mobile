@@ -9,10 +9,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, spacing, typography } from '../theme/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
+import { theme } from '@/constants/Theme';
+import { Button, Card, Input } from '@/components/ui';
 
 export default function CheckInScreen() {
   const [formData, setFormData] = useState({
@@ -152,7 +150,7 @@ export default function CheckInScreen() {
         />
 
         <TouchableOpacity style={styles.idPhotoButton} onPress={captureIdPhoto}>
-          <Ionicons name="camera" size={24} color={colors.secondary} />
+          <Ionicons name="camera" size={24} color={theme.colors.secondary} />
           <Text style={styles.idPhotoText}>Capture ID Photo</Text>
         </TouchableOpacity>
 
@@ -175,7 +173,7 @@ export default function CheckInScreen() {
               <Text style={styles.roomType}>Type {assignedRoom.type}</Text>
             </View>
             <TouchableOpacity onPress={() => setAssignedRoom(null)}>
-              <Ionicons name="close-circle" size={24} color={colors.error} />
+              <Ionicons name="close-circle" size={24} color={theme.colors.error} />
             </TouchableOpacity>
           </View>
         ) : (
@@ -217,7 +215,7 @@ export default function CheckInScreen() {
             ]}
             onPress={() => handleInputChange('paymentMethod', 'cash')}
           >
-            <Ionicons name="cash" size={24} color={colors.secondary} />
+            <Ionicons name="cash" size={24} color={theme.colors.secondary} />
             <Text style={styles.paymentText}>Cash</Text>
           </TouchableOpacity>
 
@@ -228,7 +226,7 @@ export default function CheckInScreen() {
             ]}
             onPress={() => handleInputChange('paymentMethod', 'transfer')}
           >
-            <Ionicons name="card" size={24} color={colors.secondary} />
+            <Ionicons name="card" size={24} color={theme.colors.secondary} />
             <Text style={styles.paymentText}>Transfer</Text>
           </TouchableOpacity>
         </View>
@@ -273,61 +271,61 @@ export default function CheckInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.gray[50],
-    padding: spacing.md,
+    backgroundColor: theme.colors.gray[50],
+    padding: theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.black,
-    marginBottom: spacing.md,
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.black,
+    marginBottom: theme.spacing.md,
   },
   idPhotoButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
+    padding: theme.spacing.md,
     borderWidth: 2,
-    borderColor: colors.secondary,
+    borderColor: theme.colors.secondary,
     borderStyle: 'dashed',
     borderRadius: 8,
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   idPhotoText: {
-    fontSize: typography.fontSize.md,
-    color: colors.secondary,
-    marginLeft: spacing.sm,
-    fontWeight: typography.fontWeight.medium,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.secondary,
+    marginLeft: theme.spacing.sm,
+    fontWeight: theme.typography.fontWeight.medium,
   },
   assignedRoom: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.md,
-    backgroundColor: colors.success + '20',
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.success + '20',
     borderRadius: 8,
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   roomInfo: {
     flex: 1,
   },
   roomNumber: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.success,
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.success,
   },
   roomType: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-    marginTop: spacing.xs,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[600],
+    marginTop: theme.spacing.xs,
   },
   availableRooms: {
-    marginTop: spacing.md,
+    marginTop: theme.spacing.md,
   },
   availableRoomsTitle: {
-    fontSize: typography.fontSize.md,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.gray[700],
-    marginBottom: spacing.sm,
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.gray[700],
+    marginBottom: theme.spacing.sm,
   },
   roomList: {
     flexDirection: 'row',
@@ -335,66 +333,66 @@ const styles = StyleSheet.create({
   },
   roomItem: {
     width: '30%',
-    padding: spacing.sm,
-    margin: spacing.xs,
+    padding: theme.spacing.sm,
+    margin: theme.spacing.xs,
     borderWidth: 1,
-    borderColor: colors.gray[300],
+    borderColor: theme.colors.gray[300],
     borderRadius: 8,
     alignItems: 'center',
   },
   selectedRoom: {
-    borderColor: colors.success,
-    backgroundColor: colors.success + '10',
+    borderColor: theme.colors.success,
+    backgroundColor: theme.colors.success + '10',
   },
   roomItemNumber: {
-    fontSize: typography.fontSize.md,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.black,
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.black,
   },
   roomItemType: {
-    fontSize: typography.fontSize.xs,
-    color: colors.gray[600],
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray[600],
   },
   paymentMethod: {
     flexDirection: 'row',
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   paymentOption: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
-    marginHorizontal: spacing.xs,
+    padding: theme.spacing.md,
+    marginHorizontal: theme.spacing.xs,
     borderWidth: 2,
-    borderColor: colors.gray[300],
+    borderColor: theme.colors.gray[300],
     borderRadius: 8,
   },
   selectedPayment: {
-    borderColor: colors.secondary,
-    backgroundColor: colors.secondary + '10',
+    borderColor: theme.colors.secondary,
+    backgroundColor: theme.colors.secondary + '10',
   },
   paymentText: {
-    fontSize: typography.fontSize.md,
-    color: colors.gray[700],
-    marginLeft: spacing.sm,
-    fontWeight: typography.fontWeight.medium,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.gray[700],
+    marginLeft: theme.spacing.sm,
+    fontWeight: theme.typography.fontWeight.medium,
   },
   amountBreakdown: {
-    padding: spacing.sm,
-    backgroundColor: colors.gray[100],
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.gray[100],
     borderRadius: 8,
-    marginTop: spacing.sm,
+    marginTop: theme.spacing.sm,
   },
   breakdownText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[600],
     textAlign: 'center',
   },
   actionButtons: {
-    paddingVertical: spacing.lg,
+    paddingVertical: theme.spacing.lg,
   },
   checkInButton: {
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
 });

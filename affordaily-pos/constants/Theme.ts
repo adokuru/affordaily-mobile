@@ -47,3 +47,9 @@ export const typography = {
     bold: '700' as const,
   },
 };
+
+export const theme = {
+  colors,
+  spacing,
+  typography,
+};

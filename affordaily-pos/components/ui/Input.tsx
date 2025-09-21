@@ -7,7 +7,7 @@ import {
   TextInputProps,
   ViewStyle,
 } from 'react-native';
-import { colors, spacing, typography } from '../../theme/colors';
+import { theme } from '../../constants/Theme';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -31,7 +31,7 @@ export const Input: React.FC<InputProps> = ({
           error && styles.inputError,
           style,
         ]}
-        placeholderTextColor={colors.gray[400]}
+        placeholderTextColor={theme.colors.gray[400]}
         {...props}
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -41,29 +41,29 @@ export const Input: React.FC<InputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   label: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.gray[700],
-    marginBottom: spacing.xs,
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.gray[700],
+    marginBottom: theme.spacing.xs,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.gray[300],
+    borderColor: theme.colors.gray[300],
     borderRadius: 8,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    fontSize: typography.fontSize.md,
-    backgroundColor: colors.white,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    fontSize: theme.typography.fontSize.md,
+    backgroundColor: theme.colors.white,
   },
   inputError: {
-    borderColor: colors.error,
+    borderColor: theme.colors.error,
   },
   errorText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.error,
-    marginTop: spacing.xs,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.error,
+    marginTop: theme.spacing.xs,
   },
 });

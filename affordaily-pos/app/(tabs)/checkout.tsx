@@ -10,9 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { colors, spacing, typography } from '../theme/colors';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
+import { theme } from '@/constants/Theme';
+import { Button, Card } from '@/components/ui';
 
 interface Booking {
   id: string;
@@ -127,36 +126,13 @@ export default function CheckOutScreen() {
     }
   };
 
-  const handleEarlyCheckOut = () => {
-    if (!selectedBooking) return;
-
-    Alert.alert(
-      'Early Check-Out',
-      'This guest is checking out before the scheduled time. Any refund will be calculated based on the early checkout policy.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Process Early Check-Out', onPress: handleCheckOut }
-      ]
-    );
-  };
-
-  const calculateRefund = () => {
-    if (!selectedBooking) return 0;
-    
-    // Simple refund calculation - half day rate for early checkout
-    const ratePerNight = selectedBooking.roomType === 'A' ? 1500 : 2000;
-    const halfDayRate = ratePerNight / 2;
-    
-    return halfDayRate;
-  };
-
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Card>
         <Text style={styles.sectionTitle}>Search Booking</Text>
         
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={colors.gray[500]} style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color={theme.colors.gray[500]} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by guest name or room number"
@@ -186,7 +162,7 @@ export default function CheckOutScreen() {
                     <Ionicons 
                       name={booking.keyStatus === 'returned' ? 'checkmark-circle' : 'key'} 
                       size={24} 
-                      color={booking.keyStatus === 'returned' ? colors.success : colors.warning} 
+                      color={booking.keyStatus === 'returned' ? theme.colors.success : theme.colors.warning} 
                     />
                     {booking.visitors > 0 && (
                       <Text style={styles.visitorCount}>{booking.visitors} visitors</Text>
@@ -260,7 +236,7 @@ export default function CheckOutScreen() {
               <Ionicons 
                 name={keyReturned ? 'checkmark-circle' : 'circle-outline'} 
                 size={24} 
-                color={keyReturned ? colors.success : colors.gray[400]} 
+                color={keyReturned ? theme.colors.success : theme.colors.gray[400]} 
               />
               <Text style={[
                 styles.keyReturnText,
@@ -282,13 +258,6 @@ export default function CheckOutScreen() {
               numberOfLines={3}
             />
           </View>
-
-          {calculateRefund() > 0 && (
-            <View style={styles.refundInfo}>
-              <Text style={styles.refundLabel}>Early Check-out Refund:</Text>
-              <Text style={styles.refundAmount}>₱{calculateRefund()}</Text>
-            </View>
-          )}
         </Card>
       )}
 
@@ -301,14 +270,6 @@ export default function CheckOutScreen() {
             disabled={!keyReturned}
             style={styles.checkOutButton}
           />
-          
-          <Button
-            title="Early Check-Out"
-            onPress={handleEarlyCheckOut}
-            variant="outline"
-            disabled={!keyReturned}
-            style={styles.earlyCheckOutButton}
-          />
         </View>
       )}
     </ScrollView>
@@ -318,175 +279,152 @@ export default function CheckOutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.gray[50],
-    padding: spacing.md,
+    backgroundColor: theme.colors.gray[50],
+    padding: theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.black,
-    marginBottom: spacing.md,
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.black,
+    marginBottom: theme.spacing.md,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.gray[300],
+    borderColor: theme.colors.gray[300],
     borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.white,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.white,
   },
   searchIcon: {
-    marginRight: spacing.sm,
+    marginRight: theme.spacing.sm,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: spacing.md,
-    fontSize: typography.fontSize.md,
+    paddingVertical: theme.spacing.md,
+    fontSize: theme.typography.fontSize.md,
   },
   searchResults: {
-    marginTop: spacing.md,
+    marginTop: theme.spacing.md,
   },
   bookingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.md,
+    padding: theme.spacing.md,
     borderWidth: 1,
-    borderColor: colors.gray[300],
+    borderColor: theme.colors.gray[300],
     borderRadius: 8,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.white,
+    marginBottom: theme.spacing.sm,
+    backgroundColor: theme.colors.white,
   },
   selectedBooking: {
-    borderColor: colors.secondary,
-    backgroundColor: colors.secondary + '10',
+    borderColor: theme.colors.secondary,
+    backgroundColor: theme.colors.secondary + '10',
   },
   bookingInfo: {
     flex: 1,
   },
   guestName: {
-    fontSize: typography.fontSize.md,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.black,
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.black,
   },
   roomInfo: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[600],
-    marginTop: spacing.xs,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[600],
+    marginTop: theme.spacing.xs,
   },
   checkoutTime: {
-    fontSize: typography.fontSize.sm,
-    color: colors.gray[500],
-    marginTop: spacing.xs,
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[500],
+    marginTop: theme.spacing.xs,
   },
   bookingStatus: {
     alignItems: 'center',
   },
   visitorCount: {
-    fontSize: typography.fontSize.xs,
-    color: colors.info,
-    marginTop: spacing.xs,
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.info,
+    marginTop: theme.spacing.xs,
   },
   noResults: {
-    fontSize: typography.fontSize.md,
-    color: colors.gray[500],
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.gray[500],
     textAlign: 'center',
-    padding: spacing.lg,
+    padding: theme.spacing.lg,
   },
   bookingDetails: {
-    backgroundColor: colors.gray[50],
+    backgroundColor: theme.colors.gray[50],
     borderRadius: 8,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomColor: theme.colors.gray[200],
   },
   detailLabel: {
-    fontSize: typography.fontSize.md,
-    color: colors.gray[600],
-    fontWeight: typography.fontWeight.medium,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.gray[600],
+    fontWeight: theme.typography.fontWeight.medium,
   },
   detailValue: {
-    fontSize: typography.fontSize.md,
-    color: colors.black,
-    fontWeight: typography.fontWeight.semibold,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.black,
+    fontWeight: theme.typography.fontWeight.semibold,
   },
   checkoutOptions: {
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   keyReturnOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
+    padding: theme.spacing.md,
     borderWidth: 2,
-    borderColor: colors.gray[300],
+    borderColor: theme.colors.gray[300],
     borderRadius: 8,
   },
   keyReturned: {
-    borderColor: colors.success,
-    backgroundColor: colors.success + '10',
+    borderColor: theme.colors.success,
+    backgroundColor: theme.colors.success + '10',
   },
   keyReturnText: {
-    fontSize: typography.fontSize.md,
-    color: colors.gray[700],
-    marginLeft: spacing.sm,
-    fontWeight: typography.fontWeight.medium,
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.gray[700],
+    marginLeft: theme.spacing.sm,
+    fontWeight: theme.typography.fontWeight.medium,
   },
   keyReturnedText: {
-    color: colors.success,
+    color: theme.colors.success,
   },
   damageNotesContainer: {
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   damageNotesLabel: {
-    fontSize: typography.fontSize.md,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.gray[700],
-    marginBottom: spacing.sm,
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.gray[700],
+    marginBottom: theme.spacing.sm,
   },
   damageNotesInput: {
     borderWidth: 1,
-    borderColor: colors.gray[300],
+    borderColor: theme.colors.gray[300],
     borderRadius: 8,
-    padding: spacing.md,
-    fontSize: typography.fontSize.md,
-    backgroundColor: colors.white,
+    padding: theme.spacing.md,
+    fontSize: theme.typography.fontSize.md,
+    backgroundColor: theme.colors.white,
     textAlignVertical: 'top',
   },
-  refundInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.info + '10',
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.info,
-  },
-  refundLabel: {
-    fontSize: typography.fontSize.md,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.info,
-  },
-  refundAmount: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.info,
-  },
   actionButtons: {
-    paddingVertical: spacing.lg,
+    paddingVertical: theme.spacing.lg,
   },
   checkOutButton: {
-    marginBottom: spacing.md,
-  },
-  earlyCheckOutButton: {
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
 });

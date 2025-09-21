@@ -7,7 +7,7 @@ import {
   TextStyle,
   ActivityIndicator,
 } from 'react-native';
-import { colors, spacing, typography } from '../../theme/colors';
+import { theme } from '../../constants/Theme';
 
 interface ButtonProps {
   title: string;
@@ -54,7 +54,7 @@ export const Button: React.FC<ButtonProps> = ({
       activeOpacity={0.8}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? colors.black : colors.white} />
+        <ActivityIndicator color={variant === 'primary' ? theme.colors.black : theme.colors.white} />
       ) : (
         <Text style={textStyles}>{title}</Text>
       )}
@@ -69,51 +69,51 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primary: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   secondary: {
-    backgroundColor: colors.secondary,
+    backgroundColor: theme.colors.secondary,
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
   },
   small: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
   },
   medium: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
   },
   large: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
+    paddingVertical: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.xl,
   },
   disabled: {
     opacity: 0.5,
   },
   text: {
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: theme.typography.fontWeight.semibold,
   },
   primaryText: {
-    color: colors.black,
+    color: theme.colors.black,
   },
   secondaryText: {
-    color: colors.white,
+    color: theme.colors.white,
   },
   outlineText: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
   smallText: {
-    fontSize: typography.fontSize.sm,
+    fontSize: theme.typography.fontSize.sm,
   },
   mediumText: {
-    fontSize: typography.fontSize.md,
+    fontSize: theme.typography.fontSize.md,
   },
   largeText: {
-    fontSize: typography.fontSize.lg,
+    fontSize: theme.typography.fontSize.lg,
   },
   disabledText: {
     opacity: 0.7,
