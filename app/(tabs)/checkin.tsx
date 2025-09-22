@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,19 +6,40 @@ import {
   ScrollView,
   Alert,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 
 import { theme } from '@/constants/Theme';
 import { Button, Card, Input } from '@/components/ui';
 
+type CheckInFormData = {
+  guestName: string;
+  phone: string;
+  idNumber: string;
+  nights: string;
+  paymentMethod: 'cash' | 'transfer';
+  transferReference: string;
+  amount: string;
+};
+
 export default function CheckInScreen() {
-  const [formData, setFormData] = useState({
+  const { guest_name, guest_phone, id_photo_path, number_of_nights } = useLocalSearchParams<{
+    guest_name?: string | string[];
+    guest_phone?: string | string[];
+    id_photo_path?: string | string[];
+    number_of_nights?: string | string[];
+  }>();
+
+  const toSingle = (value?: string | string[]) => Array.isArray(value) ? value[0] : value;
+
+  const [formData, setFormData] = useState<CheckInFormData>({
     guestName: '',
     phone: '',
     idNumber: '',
     nights: '1',
-    paymentMethod: 'cash' as 'cash' | 'transfer',
+    paymentMethod: 'cash',
     transferReference: '',
     amount: '',
   });
@@ -30,6 +51,25 @@ export default function CheckInScreen() {
   } | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const [idPhotoUri, setIdPhotoUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    const name = toSingle(guest_name);
+    const phone = toSingle(guest_phone);
+    const photo = toSingle(id_photo_path);
+    const nightsParam = toSingle(number_of_nights);
+
+    setFormData((prev: CheckInFormData) => ({
+      ...prev,
+      guestName: name ?? prev.guestName,
+      phone: phone ?? prev.phone,
+      nights: nightsParam ? String(parseInt(nightsParam) || 1) : prev.nights,
+    }));
+
+    if (photo) {
+      setIdPhotoUri(photo);
+    }
+  }, [guest_name, guest_phone, id_photo_path, number_of_nights]);
 
   // Mock available rooms data
   const availableRooms = [
@@ -40,8 +80,8 @@ export default function CheckInScreen() {
     { id: '5', number: '202', type: 'A' as const, status: 'available' },
   ];
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleInputChange = (field: keyof CheckInFormData, value: string) => {
+    setFormData((prev: CheckInFormData) => ({ ...prev, [field]: value }));
   };
 
   const assignRoom = () => {
@@ -91,7 +131,7 @@ export default function CheckInScreen() {
 
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise<void>((resolve) => setTimeout(resolve, 2000));
 
       Alert.alert(
         'Check-In Successful',
@@ -130,14 +170,14 @@ export default function CheckInScreen() {
         <Input
           label="Guest Name *"
           value={formData.guestName}
-          onChangeText={(value) => handleInputChange('guestName', value)}
+          onChangeText={(value: string) => handleInputChange('guestName', value)}
           placeholder="Enter guest full name"
         />
 
         <Input
           label="Phone Number *"
           value={formData.phone}
-          onChangeText={(value) => handleInputChange('phone', value)}
+          onChangeText={(value: string) => handleInputChange('phone', value)}
           placeholder="Enter phone number"
           keyboardType="phone-pad"
         />
@@ -145,7 +185,7 @@ export default function CheckInScreen() {
         <Input
           label="ID Number"
           value={formData.idNumber}
-          onChangeText={(value) => handleInputChange('idNumber', value)}
+          onChangeText={(value: string) => handleInputChange('idNumber', value)}
           placeholder="Enter ID number"
         />
 
@@ -154,10 +194,17 @@ export default function CheckInScreen() {
           <Text style={styles.idPhotoText}>Capture ID Photo</Text>
         </TouchableOpacity>
 
+        {idPhotoUri && (
+          <View style={styles.idPhotoPreview}>
+            <Image source={{ uri: idPhotoUri }} style={styles.idPhotoImage} />
+            <Text style={styles.idPhotoCaption}>ID Photo</Text>
+          </View>
+        )}
+
         <Input
           label="Number of Nights"
           value={formData.nights}
-          onChangeText={(value) => handleInputChange('nights', value)}
+          onChangeText={(value: string) => handleInputChange('nights', value)}
           placeholder="Enter number of nights"
           keyboardType="numeric"
         />
@@ -235,7 +282,7 @@ export default function CheckInScreen() {
           <Input
             label="Transfer Reference"
             value={formData.transferReference}
-            onChangeText={(value) => handleInputChange('transferReference', value)}
+            onChangeText={(value: string) => handleInputChange('transferReference', value)}
             placeholder="Enter transfer reference"
           />
         )}
@@ -243,7 +290,7 @@ export default function CheckInScreen() {
         <Input
           label="Amount"
           value={formData.amount}
-          onChangeText={(value) => handleInputChange('amount', value)}
+          onChangeText={(value: string) => handleInputChange('amount', value)}
           placeholder={`Suggested: ₱${calculateAmount()}`}
           keyboardType="numeric"
         />
@@ -295,6 +342,23 @@ const styles = StyleSheet.create({
     color: theme.colors.secondary,
     marginLeft: theme.spacing.sm,
     fontWeight: theme.typography.fontWeight.medium,
+  },
+  idPhotoPreview: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  idPhotoImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.gray[300],
+    backgroundColor: theme.colors.gray[100],
+  },
+  idPhotoCaption: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[600],
+    marginTop: theme.spacing.xs,
   },
   assignedRoom: {
     flexDirection: 'row',
