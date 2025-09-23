@@ -1,26 +1,56 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 import { theme } from '@/constants/Theme';
 import { Button, Card } from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
+import { useDashboardStats } from '@/hooks/useDashboardQueries';
 
 export default function DashboardScreen() {
-  const [stats] = useState({
-    totalRooms: 20,
-    occupiedRooms: 12,
-    availableRooms: 8,
-    pendingCheckouts: 3,
-    totalGuests: 24,
-    totalVisitors: 8,
-  });
+  const { user, logout } = useAuth();
+
+  // Use TanStack Query to fetch dashboard stats
+  const { data: dashboardData, isLoading, error } = useDashboardStats();
+
+  // Fallback to default stats if data is loading or unavailable
+  const stats = dashboardData?.data || {
+    total_rooms: 400,
+    occupied_rooms: 180,
+    available_rooms: 200,
+    pending_checkouts: 15,
+    total_guests: 180,
+    total_visitors: 45,
+    today_revenue: 360000,
+    monthly_revenue: 10800000,
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: logout,
+        },
+      ]
+    );
+  };
 
   const StatCard = ({ title, value, icon, color = theme.colors.primary }: any) => (
     <Card style={styles.statCard}>
@@ -48,36 +78,53 @@ export default function DashboardScreen() {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Affordaily POS</Text>
-        <Text style={styles.headerSubtitle}>Property Management System</Text>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>Affordaily POS</Text>
+            <Text style={styles.headerSubtitle}>Property Management System</Text>
+            {user && (
+              <Text style={styles.welcomeText}>Welcome, {user.name}</Text>
+            )}
+          </View>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color={theme.colors.gray[600]} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <View style={styles.statsGrid}>
-        <StatCard
-          title="Total Rooms"
-          value={stats.totalRooms}
-          icon="bed"
-          color={theme.colors.info}
-        />
-        <StatCard
-          title="Occupied"
-          value={stats.occupiedRooms}
-          icon="person"
-          color={theme.colors.warning}
-        />
-        <StatCard
-          title="Available"
-          value={stats.availableRooms}
-          icon="checkmark-circle"
-          color={theme.colors.success}
-        />
-        <StatCard
-          title="Pending Checkout"
-          value={stats.pendingCheckouts}
-          icon="time"
-          color={theme.colors.error}
-        />
-      </View>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.secondary} />
+          <Text style={styles.loadingText}>Loading dashboard...</Text>
+        </View>
+      ) : (
+        <View style={styles.statsGrid}>
+          <StatCard
+            title="Total Rooms"
+            value={stats.total_rooms}
+            icon="bed"
+            color={theme.colors.info}
+          />
+          <StatCard
+            title="Occupied"
+            value={stats.occupied_rooms}
+            icon="person"
+            color={theme.colors.warning}
+          />
+          <StatCard
+            title="Available"
+            value={stats.available_rooms}
+            icon="checkmark-circle"
+            color={theme.colors.success}
+          />
+          <StatCard
+            title="Pending Checkout"
+            value={stats.pending_checkouts}
+            icon="time"
+            color={theme.colors.error}
+          />
+        </View>
+      )}
 
       <Card>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -95,59 +142,25 @@ export default function DashboardScreen() {
           <QuickAction
             title="Extend Stay"
             icon="time"
-            onPress={() => {}}
+            onPress={() => { }}
           />
           <QuickAction
             title="Visitor Pass"
             icon="card"
-            onPress={() => {}}
+            onPress={() => { }}
           />
         </View>
       </Card>
 
-      <Card>
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-        <View style={styles.activityList}>
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Ionicons name="person-add" size={16} color={theme.colors.success} />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityText}>Guest checked in - Room 101</Text>
-              <Text style={styles.activityTime}>2 minutes ago</Text>
-            </View>
-          </View>
-          
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Ionicons name="card" size={16} color={theme.colors.info} />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityText}>Visitor pass issued - Room 205</Text>
-              <Text style={styles.activityTime}>15 minutes ago</Text>
-            </View>
-          </View>
-          
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Ionicons name="person-remove" size={16} color={theme.colors.warning} />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityText}>Guest checked out - Room 103</Text>
-              <Text style={styles.activityTime}>1 hour ago</Text>
-            </View>
-          </View>
-        </View>
-      </Card>
 
-      {stats.pendingCheckouts > 0 && (
+      {!isLoading && stats.pending_checkouts > 0 && (
         <Card style={styles.alertCard}>
           <View style={styles.alertHeader}>
             <Ionicons name="warning" size={20} color={theme.colors.error} />
             <Text style={styles.alertTitle}>Pending Checkouts</Text>
           </View>
           <Text style={styles.alertText}>
-            {stats.pendingCheckouts} guests have pending checkouts. 
+            {stats.pending_checkouts} guests have pending checkouts.
             Please process them to avoid auto-checkout at 12:00 PM.
           </Text>
           <Button
@@ -173,6 +186,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.gray[200],
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: theme.typography.fontSize.xxxl,
     fontWeight: theme.typography.fontWeight.bold,
@@ -182,6 +200,17 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.gray[600],
+  },
+  welcomeText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.secondary,
+    marginTop: theme.spacing.xs,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  logoutButton: {
+    padding: theme.spacing.sm,
+    borderRadius: 8,
+    backgroundColor: theme.colors.gray[100],
   },
   statsGrid: {
     flexDirection: 'row',
@@ -252,37 +281,6 @@ const styles = StyleSheet.create({
     color: theme.colors.gray[700],
     textAlign: 'center',
   },
-  activityList: {
-    marginTop: theme.spacing.md,
-  },
-  activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray[100],
-  },
-  activityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.gray[100],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: theme.spacing.md,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityText: {
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.black,
-    marginBottom: theme.spacing.xs,
-  },
-  activityTime: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray[500],
-  },
   alertCard: {
     backgroundColor: theme.colors.error + '10',
     borderLeftWidth: 4,
@@ -304,5 +302,16 @@ const styles = StyleSheet.create({
     color: theme.colors.gray[700],
     marginBottom: theme.spacing.md,
     lineHeight: 20,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.xl,
+    minHeight: 200,
+  },
+  loadingText: {
+    fontSize: theme.typography.fontSize.md,
+    color: theme.colors.gray[600],
+    marginTop: theme.spacing.md,
   },
 });

@@ -10,9 +10,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 
 import { theme } from '@/constants/Theme';
 import { Button, Card, Input } from '@/components/ui';
+import { CreateBookingData } from '@/services/api';
+import { useGuestSearch } from '@/hooks/useGuestQueries';
+import { useCreateBooking } from '@/hooks/useBookingQueries';
+
+// Remove the local Guest type since we're importing from API service
 
 type CheckInFormData = {
   guestName: string;
@@ -24,6 +30,8 @@ type CheckInFormData = {
   amount: string;
 };
 
+type FormStep = 'phone' | 'guest-info' | 'payment';
+
 export default function CheckInScreen() {
   const { guest_name, guest_phone, id_photo_path, number_of_nights } = useLocalSearchParams<{
     guest_name?: string | string[];
@@ -34,6 +42,8 @@ export default function CheckInScreen() {
 
   const toSingle = (value?: string | string[]) => Array.isArray(value) ? value[0] : value;
 
+  const [currentStep, setCurrentStep] = useState<FormStep>('phone');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [formData, setFormData] = useState<CheckInFormData>({
     guestName: '',
     phone: '',
@@ -44,14 +54,17 @@ export default function CheckInScreen() {
     amount: '',
   });
 
-  const [assignedRoom, setAssignedRoom] = useState<{
-    id: string;
-    number: string;
-    type: 'A' | 'B';
-  } | null>(null);
-
-  const [loading, setLoading] = useState(false);
   const [idPhotoUri, setIdPhotoUri] = useState<string | null>(null);
+
+  // TanStack Query hooks
+  const { data: guestSearchResult, isLoading: guestSearchLoading, error: guestSearchError } = useGuestSearch(
+    phoneNumber,
+    phoneNumber.trim().length > 0
+  );
+  const createBookingMutation = useCreateBooking();
+
+  const foundGuest = guestSearchResult?.data || null;
+  const loading = guestSearchLoading || createBookingMutation.isPending;
 
   useEffect(() => {
     const name = toSingle(guest_name);
@@ -59,55 +72,161 @@ export default function CheckInScreen() {
     const photo = toSingle(id_photo_path);
     const nightsParam = toSingle(number_of_nights);
 
-    setFormData((prev: CheckInFormData) => ({
-      ...prev,
-      guestName: name ?? prev.guestName,
-      phone: phone ?? prev.phone,
-      nights: nightsParam ? String(parseInt(nightsParam) || 1) : prev.nights,
-    }));
+    if (phone) {
+      setPhoneNumber(phone);
+      setFormData((prev: CheckInFormData) => ({
+        ...prev,
+        phone: phone,
+      }));
+      // TanStack Query will automatically handle the lookup when phoneNumber changes
+    }
+
+    if (name) {
+      setFormData((prev: CheckInFormData) => ({
+        ...prev,
+        guestName: name,
+      }));
+    }
+
+    if (nightsParam) {
+      setFormData((prev: CheckInFormData) => ({
+        ...prev,
+        nights: String(parseInt(nightsParam) || 1),
+      }));
+    }
 
     if (photo) {
       setIdPhotoUri(photo);
     }
   }, [guest_name, guest_phone, id_photo_path, number_of_nights]);
 
-  // Mock available rooms data
-  const availableRooms = [
-    { id: '1', number: '101', type: 'A' as const, status: 'available' },
-    { id: '2', number: '102', type: 'B' as const, status: 'available' },
-    { id: '3', number: '103', type: 'A' as const, status: 'available' },
-    { id: '4', number: '201', type: 'B' as const, status: 'available' },
-    { id: '5', number: '202', type: 'A' as const, status: 'available' },
-  ];
+  // Update form data when guest search results change
+  useEffect(() => {
+    if (foundGuest && phoneNumber) {
+      setFormData(prev => ({
+        ...prev,
+        guestName: foundGuest.name,
+        phone: foundGuest.phone,
+        idNumber: '', // API doesn't return ID number in search
+      }));
+    } else if (phoneNumber && !guestSearchLoading && !guestSearchError) {
+      // Guest not found, clear form data
+      setFormData(prev => ({
+        ...prev,
+        phone: phoneNumber,
+        guestName: '',
+        idNumber: '',
+      }));
+    }
+  }, [foundGuest, phoneNumber, guestSearchLoading, guestSearchError]);
+
+  const handlePhoneSubmit = () => {
+    if (!phoneNumber.trim()) {
+      Alert.alert('Missing Phone', 'Please enter a phone number');
+      return;
+    }
+    // TanStack Query automatically handles the lookup when phoneNumber changes
+  };
+
+  const proceedToGuestInfo = () => {
+    setCurrentStep('guest-info');
+  };
+
+  const proceedToPayment = () => {
+    setCurrentStep('payment');
+  };
+
+  const goBack = () => {
+    if (currentStep === 'guest-info') {
+      setCurrentStep('phone');
+    } else if (currentStep === 'payment') {
+      setCurrentStep('guest-info');
+    }
+  };
 
   const handleInputChange = (field: keyof CheckInFormData, value: string) => {
     setFormData((prev: CheckInFormData) => ({ ...prev, [field]: value }));
   };
 
-  const assignRoom = () => {
-    // Simple room assignment logic - prefer same type grouping
-    const available = availableRooms.filter(room => room.status === 'available');
-    if (available.length === 0) {
-      Alert.alert('No Available Rooms', 'All rooms are currently occupied.');
-      return;
-    }
+  const captureIdPhoto = async () => {
+    try {
+      // Request camera permissions
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
 
-    // For demo, just assign the first available room
-    const room = available[0];
-    setAssignedRoom(room);
+      if (cameraPermission.status !== 'granted') {
+        Alert.alert(
+          'Camera Permission Required',
+          'Please grant camera permission to capture ID photos.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Show action sheet for camera options
+      Alert.alert(
+        'Capture ID Photo',
+        'Choose how you want to capture the guest ID photo:',
+        [
+          {
+            text: 'Camera',
+            onPress: openCamera,
+          },
+          {
+            text: 'Photo Library',
+            onPress: openImagePicker,
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error requesting camera permission:', error);
+      Alert.alert('Error', 'Failed to access camera. Please try again.');
+    }
   };
 
-  const captureIdPhoto = () => {
-    Alert.alert(
-      'ID Photo Capture',
-      'This would open the camera to capture guest ID photo.',
-      [{ text: 'OK' }]
-    );
+  const openCamera = async () => {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setIdPhotoUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error opening camera:', error);
+      Alert.alert('Error', 'Failed to open camera. Please try again.');
+    }
+  };
+
+  const openImagePicker = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setIdPhotoUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error opening image picker:', error);
+      Alert.alert('Error', 'Failed to open photo library. Please try again.');
+    }
   };
 
   const calculateAmount = () => {
     const nights = parseInt(formData.nights) || 1;
-    const ratePerNight = assignedRoom?.type === 'A' ? 1500 : 2000;
+    // Rate as per API documentation: 2000 naira per night for both bed types
+    const ratePerNight = 2000;
     return nights * ratePerNight;
   };
 
@@ -117,200 +236,311 @@ export default function CheckInScreen() {
       return;
     }
 
-    if (!assignedRoom) {
-      Alert.alert('No Room Assigned', 'Please assign a room first.');
-      return;
-    }
-
     if (!formData.amount) {
       Alert.alert('Missing Amount', 'Please enter the payment amount.');
       return;
     }
 
-    setLoading(true);
-
     try {
-      // Simulate API call
-      await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+      const bookingData: CreateBookingData = {
+        guest_name: formData.guestName,
+        guest_phone: formData.phone,
+        id_photo_path: idPhotoUri || undefined,
+        number_of_nights: parseInt(formData.nights) || 1,
+        preferred_bed_type: 'A', // Default to A, can be made configurable
+        payment_method: formData.paymentMethod,
+        payer_name: formData.guestName,
+        reference: formData.paymentMethod === 'transfer' ? formData.transferReference : undefined,
+      };
 
-      Alert.alert(
-        'Check-In Successful',
-        `Guest ${formData.guestName} has been checked into Room ${assignedRoom.number}.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Reset form
-              setFormData({
-                guestName: '',
-                phone: '',
-                idNumber: '',
-                nights: '1',
-                paymentMethod: 'cash',
-                transferReference: '',
-                amount: '',
-              });
-              setAssignedRoom(null);
+      const response = await createBookingMutation.mutateAsync(bookingData);
+
+      if (response.success) {
+        const booking = response.data;
+        Alert.alert(
+          'Check-In Successful',
+          `Guest ${formData.guestName} has been checked into Room ${booking.room_number} (Bed Space ${booking.bed_space}).\n\nBooking Reference: ${booking.booking_reference}\nTotal Amount: ₱${booking.total_amount}`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Reset form
+                setFormData({
+                  guestName: '',
+                  phone: '',
+                  idNumber: '',
+                  nights: '1',
+                  paymentMethod: 'cash',
+                  transferReference: '',
+                  amount: '',
+                });
+                setPhoneNumber('');
+                setIdPhotoUri(null);
+                setCurrentStep('phone');
+              }
             }
-          }
-        ]
+          ]
+        );
+      }
+    } catch (error: any) {
+      console.error('Check-in failed:', error);
+      Alert.alert(
+        'Check-In Failed',
+        error.message || 'Failed to process check-in. Please try again.'
       );
-    } catch (error) {
-      Alert.alert('Error', 'Failed to process check-in. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
-  return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Card>
-        <Text style={styles.sectionTitle}>Guest Information</Text>
-        
-        <Input
-          label="Guest Name *"
-          value={formData.guestName}
-          onChangeText={(value: string) => handleInputChange('guestName', value)}
-          placeholder="Enter guest full name"
-        />
+  const renderStepIndicator = () => {
+    const steps = [
+      { key: 'phone', label: 'Phone', icon: 'call' },
+      { key: 'guest-info', label: 'Guest Info', icon: 'person' },
+      { key: 'payment', label: 'Payment', icon: 'card' },
+    ];
 
-        <Input
-          label="Phone Number *"
-          value={formData.phone}
-          onChangeText={(value: string) => handleInputChange('phone', value)}
-          placeholder="Enter phone number"
-          keyboardType="phone-pad"
-        />
-
-        <Input
-          label="ID Number"
-          value={formData.idNumber}
-          onChangeText={(value: string) => handleInputChange('idNumber', value)}
-          placeholder="Enter ID number"
-        />
-
-        <TouchableOpacity style={styles.idPhotoButton} onPress={captureIdPhoto}>
-          <Ionicons name="camera" size={24} color={theme.colors.secondary} />
-          <Text style={styles.idPhotoText}>Capture ID Photo</Text>
-        </TouchableOpacity>
-
-        {idPhotoUri && (
-          <View style={styles.idPhotoPreview}>
-            <Image source={{ uri: idPhotoUri }} style={styles.idPhotoImage} />
-            <Text style={styles.idPhotoCaption}>ID Photo</Text>
-          </View>
-        )}
-
-        <Input
-          label="Number of Nights"
-          value={formData.nights}
-          onChangeText={(value: string) => handleInputChange('nights', value)}
-          placeholder="Enter number of nights"
-          keyboardType="numeric"
-        />
-      </Card>
-
-      <Card>
-        <Text style={styles.sectionTitle}>Room Assignment</Text>
-        
-        {assignedRoom ? (
-          <View style={styles.assignedRoom}>
-            <View style={styles.roomInfo}>
-              <Text style={styles.roomNumber}>Room {assignedRoom.number}</Text>
-              <Text style={styles.roomType}>Type {assignedRoom.type}</Text>
+    return (
+      <View style={styles.stepIndicator}>
+        {steps.map((step, index) => (
+          <View key={step.key} style={styles.stepItem}>
+            <View style={[
+              styles.stepIcon,
+              currentStep === step.key && styles.activeStepIcon,
+              steps.findIndex(s => s.key === currentStep) > index && styles.completedStepIcon
+            ]}>
+              <Ionicons
+                name={step.icon as any}
+                size={16}
+                color={
+                  currentStep === step.key || steps.findIndex(s => s.key === currentStep) > index
+                    ? theme.colors.white
+                    : theme.colors.gray[500]
+                }
+              />
             </View>
-            <TouchableOpacity onPress={() => setAssignedRoom(null)}>
+            <Text style={[
+              styles.stepLabel,
+              currentStep === step.key && styles.activeStepLabel
+            ]}>
+              {step.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderPhoneStep = () => (
+    <Card>
+      <Text style={styles.sectionTitle}>Guest Lookup</Text>
+      <Text style={styles.stepDescription}>
+        Enter the guest's phone number to check if they are a returning customer.
+      </Text>
+
+      <Input
+        label="Phone Number *"
+        value={phoneNumber}
+        onChangeText={setPhoneNumber}
+        placeholder="Enter phone number"
+        keyboardType="phone-pad"
+      />
+
+      {foundGuest && (
+        <View style={styles.foundGuestCard}>
+          <View style={styles.guestHeader}>
+            <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
+            <Text style={styles.foundGuestTitle}>Returning Guest Found!</Text>
+          </View>
+          <Text style={styles.guestName}>{foundGuest.name}</Text>
+          <Text style={styles.guestDetails}>
+            Phone: {foundGuest.phone}
+          </Text>
+        </View>
+      )}
+
+      {phoneNumber && !foundGuest && !loading && (
+        <View style={styles.newGuestCard}>
+          <View style={styles.guestHeader}>
+            <Ionicons name="person-add" size={24} color={theme.colors.info} />
+            <Text style={styles.newGuestTitle}>New Guest</Text>
+          </View>
+          <Text style={styles.newGuestText}>
+            This phone number is not in our system. You'll need to fill in their information.
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.stepButtons}>
+        <Button
+          title="Lookup Guest"
+          onPress={handlePhoneSubmit}
+          loading={loading}
+          disabled={!phoneNumber.trim()}
+          style={styles.primaryButton}
+        />
+
+        {phoneNumber && (
+          <Button
+            title="Continue"
+            onPress={proceedToGuestInfo}
+            variant="outline"
+            disabled={loading}
+          />
+        )}
+      </View>
+    </Card>
+  );
+
+  const renderGuestInfoStep = () => (
+    <Card>
+      <Text style={styles.sectionTitle}>Guest Information</Text>
+      {foundGuest ? (
+        <Text style={styles.stepDescription}>
+          Please confirm or update the guest information below.
+        </Text>
+      ) : (
+        <Text style={styles.stepDescription}>
+          Please fill in the guest information below.
+        </Text>
+      )}
+
+      <Input
+        label="Guest Name *"
+        value={formData.guestName}
+        onChangeText={(value: string) => handleInputChange('guestName', value)}
+        placeholder="Enter guest full name"
+      />
+
+      <Input
+        label="ID Number"
+        value={formData.idNumber}
+        onChangeText={(value: string) => handleInputChange('idNumber', value)}
+        placeholder="Enter ID number"
+      />
+
+      <TouchableOpacity style={styles.idPhotoButton} onPress={captureIdPhoto}>
+        <Ionicons name="camera" size={24} color={theme.colors.secondary} />
+        <Text style={styles.idPhotoText}>
+          {idPhotoUri ? 'Change ID Photo' : 'Capture ID Photo'}
+        </Text>
+      </TouchableOpacity>
+
+      {idPhotoUri && (
+        <View style={styles.idPhotoPreview}>
+          <View style={styles.photoContainer}>
+            <Image source={{ uri: idPhotoUri }} style={styles.idPhotoImage} />
+            <TouchableOpacity
+              style={styles.removePhotoButton}
+              onPress={() => setIdPhotoUri(null)}
+            >
               <Ionicons name="close-circle" size={24} color={theme.colors.error} />
             </TouchableOpacity>
           </View>
-        ) : (
-          <Button
-            title="Auto-Assign Room"
-            onPress={assignRoom}
-            variant="outline"
-          />
-        )}
-
-        <View style={styles.availableRooms}>
-          <Text style={styles.availableRoomsTitle}>Available Rooms</Text>
-          <View style={styles.roomList}>
-            {availableRooms.map((room) => (
-              <TouchableOpacity
-                key={room.id}
-                style={[
-                  styles.roomItem,
-                  assignedRoom?.id === room.id && styles.selectedRoom
-                ]}
-                onPress={() => setAssignedRoom(room)}
-              >
-                <Text style={styles.roomItemNumber}>{room.number}</Text>
-                <Text style={styles.roomItemType}>Type {room.type}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.idPhotoCaption}>ID Photo Captured</Text>
         </View>
-      </Card>
+      )}
 
-      <Card>
-        <Text style={styles.sectionTitle}>Payment Information</Text>
-        
-        <View style={styles.paymentMethod}>
-          <TouchableOpacity
-            style={[
-              styles.paymentOption,
-              formData.paymentMethod === 'cash' && styles.selectedPayment
-            ]}
-            onPress={() => handleInputChange('paymentMethod', 'cash')}
-          >
-            <Ionicons name="cash" size={24} color={theme.colors.secondary} />
-            <Text style={styles.paymentText}>Cash</Text>
-          </TouchableOpacity>
+      <Input
+        label="Number of Nights"
+        value={formData.nights}
+        onChangeText={(value: string) => handleInputChange('nights', value)}
+        placeholder="Enter number of nights"
+        keyboardType="numeric"
+      />
 
-          <TouchableOpacity
-            style={[
-              styles.paymentOption,
-              formData.paymentMethod === 'transfer' && styles.selectedPayment
-            ]}
-            onPress={() => handleInputChange('paymentMethod', 'transfer')}
-          >
-            <Ionicons name="card" size={24} color={theme.colors.secondary} />
-            <Text style={styles.paymentText}>Transfer</Text>
-          </TouchableOpacity>
-        </View>
-
-        {formData.paymentMethod === 'transfer' && (
-          <Input
-            label="Transfer Reference"
-            value={formData.transferReference}
-            onChangeText={(value: string) => handleInputChange('transferReference', value)}
-            placeholder="Enter transfer reference"
-          />
-        )}
-
-        <Input
-          label="Amount"
-          value={formData.amount}
-          onChangeText={(value: string) => handleInputChange('amount', value)}
-          placeholder={`Suggested: ₱${calculateAmount()}`}
-          keyboardType="numeric"
-        />
-
-        <View style={styles.amountBreakdown}>
-          <Text style={styles.breakdownText}>
-            {formData.nights} nights × ₱{assignedRoom?.type === 'A' ? '1,500' : '2,000'} = ₱{calculateAmount()}
-          </Text>
-        </View>
-      </Card>
-
-      <View style={styles.actionButtons}>
+      <View style={styles.stepButtons}>
         <Button
-          title="Process Check-In"
-          onPress={handleCheckIn}
-          loading={loading}
-          disabled={!assignedRoom || !formData.guestName || !formData.phone}
-          style={styles.checkInButton}
+          title="Back"
+          onPress={goBack}
+          variant="outline"
+          style={styles.backButton}
+        />
+        <Button
+          title="Continue to Payment"
+          onPress={proceedToPayment}
+          disabled={!formData.guestName.trim()}
         />
       </View>
+    </Card>
+  );
+
+  const renderPaymentStep = () => (
+    <Card>
+      <Text style={styles.sectionTitle}>Payment Information</Text>
+      <Text style={styles.stepDescription}>
+        Complete the payment information to finalize the check-in.
+      </Text>
+
+      <View style={styles.paymentMethod}>
+        <TouchableOpacity
+          style={[
+            styles.paymentOption,
+            formData.paymentMethod === 'cash' && styles.selectedPayment
+          ]}
+          onPress={() => handleInputChange('paymentMethod', 'cash')}
+        >
+          <Ionicons name="cash" size={24} color={theme.colors.secondary} />
+          <Text style={styles.paymentText}>Cash</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.paymentOption,
+            formData.paymentMethod === 'transfer' && styles.selectedPayment
+          ]}
+          onPress={() => handleInputChange('paymentMethod', 'transfer')}
+        >
+          <Ionicons name="card" size={24} color={theme.colors.secondary} />
+          <Text style={styles.paymentText}>Transfer</Text>
+        </TouchableOpacity>
+      </View>
+
+      {formData.paymentMethod === 'transfer' && (
+        <Input
+          label="Transfer Reference"
+          value={formData.transferReference}
+          onChangeText={(value: string) => handleInputChange('transferReference', value)}
+          placeholder="Enter transfer reference"
+        />
+      )}
+
+      <Input
+        label="Amount"
+        value={formData.amount}
+        onChangeText={(value: string) => handleInputChange('amount', value)}
+        placeholder={`Suggested: ₱${calculateAmount()}`}
+        keyboardType="numeric"
+      />
+
+      <View style={styles.amountBreakdown}>
+        <Text style={styles.breakdownText}>
+          {formData.nights} nights × ₱2,000 = ₱{calculateAmount()}
+        </Text>
+      </View>
+
+      <View style={styles.stepButtons}>
+        <Button
+          title="Back"
+          onPress={goBack}
+          variant="outline"
+          style={styles.backButton}
+        />
+        <Button
+          title="Complete Check-In"
+          onPress={handleCheckIn}
+          loading={loading}
+          disabled={!formData.amount}
+        />
+      </View>
+    </Card>
+  );
+
+  return (
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {renderStepIndicator()}
+
+      {currentStep === 'phone' && renderPhoneStep()}
+      {currentStep === 'guest-info' && renderGuestInfoStep()}
+      {currentStep === 'payment' && renderPaymentStep()}
     </ScrollView>
   );
 }
@@ -325,7 +555,108 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.lg,
     fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.black,
+    marginBottom: theme.spacing.sm,
+  },
+  stepDescription: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[600],
+    marginBottom: theme.spacing.lg,
+    lineHeight: 20,
+  },
+  stepIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.lg,
     marginBottom: theme.spacing.md,
+  },
+  stepItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  stepIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.gray[300],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.xs,
+  },
+  activeStepIcon: {
+    backgroundColor: theme.colors.secondary,
+  },
+  completedStepIcon: {
+    backgroundColor: theme.colors.success,
+  },
+  stepLabel: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray[500],
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  activeStepLabel: {
+    color: theme.colors.secondary,
+    fontWeight: theme.typography.fontWeight.semibold,
+  },
+  foundGuestCard: {
+    backgroundColor: theme.colors.success + '10',
+    borderRadius: 12,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.success + '30',
+  },
+  newGuestCard: {
+    backgroundColor: theme.colors.info + '10',
+    borderRadius: 12,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.info + '30',
+  },
+  guestHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  foundGuestTitle: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.success,
+    marginLeft: theme.spacing.sm,
+  },
+  newGuestTitle: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.info,
+    marginLeft: theme.spacing.sm,
+  },
+  guestName: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.black,
+    marginBottom: theme.spacing.xs,
+  },
+  guestDetails: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[600],
+  },
+  newGuestText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[600],
+    lineHeight: 18,
+  },
+  stepButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.lg,
+  },
+  primaryButton: {
+    flex: 1,
+    marginRight: theme.spacing.sm,
+  },
+  backButton: {
+    marginRight: theme.spacing.sm,
   },
   idPhotoButton: {
     flexDirection: 'row',
@@ -347,6 +678,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.md,
   },
+  photoContainer: {
+    position: 'relative',
+    width: '100%',
+  },
   idPhotoImage: {
     width: '100%',
     height: 180,
@@ -355,67 +690,26 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.gray[300],
     backgroundColor: theme.colors.gray[100],
   },
+  removePhotoButton: {
+    position: 'absolute',
+    top: theme.spacing.xs,
+    right: theme.spacing.xs,
+    backgroundColor: theme.colors.white,
+    borderRadius: 12,
+    shadowColor: theme.colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
   idPhotoCaption: {
     fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray[600],
-    marginTop: theme.spacing.xs,
-  },
-  assignedRoom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.success + '20',
-    borderRadius: 8,
-    marginBottom: theme.spacing.md,
-  },
-  roomInfo: {
-    flex: 1,
-  },
-  roomNumber: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.success,
-  },
-  roomType: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray[600],
     marginTop: theme.spacing.xs,
-  },
-  availableRooms: {
-    marginTop: theme.spacing.md,
-  },
-  availableRoomsTitle: {
-    fontSize: theme.typography.fontSize.md,
     fontWeight: theme.typography.fontWeight.medium,
-    color: theme.colors.gray[700],
-    marginBottom: theme.spacing.sm,
-  },
-  roomList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  roomItem: {
-    width: '30%',
-    padding: theme.spacing.sm,
-    margin: theme.spacing.xs,
-    borderWidth: 1,
-    borderColor: theme.colors.gray[300],
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  selectedRoom: {
-    borderColor: theme.colors.success,
-    backgroundColor: theme.colors.success + '10',
-  },
-  roomItemNumber: {
-    fontSize: theme.typography.fontSize.md,
-    fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.black,
-  },
-  roomItemType: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.gray[600],
   },
   paymentMethod: {
     flexDirection: 'row',
@@ -452,11 +746,5 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray[600],
     textAlign: 'center',
-  },
-  actionButtons: {
-    paddingVertical: theme.spacing.lg,
-  },
-  checkInButton: {
-    marginBottom: theme.spacing.md,
   },
 });

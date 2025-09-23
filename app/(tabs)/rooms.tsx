@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '@/constants/Theme';
 import { Card } from '@/components/ui';
+import { useRoomOccupancy } from '@/hooks/useRoomQueries';
 
 interface Room {
   id: string;
@@ -22,32 +22,15 @@ interface Room {
 }
 
 export default function RoomsScreen() {
-  const [rooms] = useState<Room[]>([
-    { id: '1', number: '101', type: 'A', status: 'occupied', guestName: 'John Doe', checkoutTime: '12:00 PM', visitors: 2 },
-    { id: '2', number: '102', type: 'B', status: 'available' },
-    { id: '3', number: '103', type: 'A', status: 'occupied', guestName: 'Jane Smith', checkoutTime: '12:00 PM', visitors: 0 },
-    { id: '4', number: '201', type: 'B', status: 'occupied', guestName: 'Mike Johnson', checkoutTime: '11:00 AM', visitors: 1 },
-    { id: '5', number: '202', type: 'A', status: 'maintenance' },
-    { id: '6', number: '203', type: 'B', status: 'available' },
-    { id: '7', number: '301', type: 'A', status: 'occupied', guestName: 'Sarah Wilson', checkoutTime: '12:00 PM', visitors: 3 },
-    { id: '8', number: '302', type: 'B', status: 'available' },
-    { id: '9', number: '303', type: 'A', status: 'occupied', guestName: 'David Brown', checkoutTime: '10:00 AM', visitors: 0 },
-    { id: '10', number: '401', type: 'B', status: 'available' },
-  ]);
+  // Use TanStack Query to fetch room occupancy data
+  const { data: occupancyData, isLoading, error } = useRoomOccupancy();
 
-  const [filter, setFilter] = useState<'all' | 'available' | 'occupied' | 'maintenance'>('all');
-
-  const filteredRooms = rooms.filter(room => 
-    filter === 'all' || room.status === filter
-  );
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'available': return theme.colors.success;
-      case 'occupied': return theme.colors.warning;
-      case 'maintenance': return theme.colors.error;
-      default: return theme.colors.gray[500];
-    }
+  // Fallback to default stats if data is loading or unavailable
+  const stats = occupancyData?.data || {
+    total_rooms: 400,
+    available_rooms: 200,
+    occupied_rooms: 180,
+    maintenance_rooms: 20,
   };
 
   const getStatusIcon = (status: string) => {
@@ -59,121 +42,82 @@ export default function RoomsScreen() {
     }
   };
 
-  const RoomCard = ({ room }: { room: Room }) => (
-    <TouchableOpacity style={styles.roomCard}>
-      <View style={styles.roomHeader}>
-        <View style={styles.roomNumberContainer}>
-          <Text style={styles.roomNumber}>Room {room.number}</Text>
-          <Text style={styles.roomType}>Type {room.type}</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(room.status) }]}>
-          <Ionicons name={getStatusIcon(room.status)} size={16} color={theme.colors.white} />
-          <Text style={styles.statusText}>{room.status.toUpperCase()}</Text>
-        </View>
-      </View>
-
-      {room.status === 'occupied' && room.guestName && (
-        <View style={styles.occupantInfo}>
-          <View style={styles.occupantRow}>
-            <Ionicons name="person" size={16} color={theme.colors.gray[600]} />
-            <Text style={styles.occupantName}>{room.guestName}</Text>
-          </View>
-          
-          {room.checkoutTime && (
-            <View style={styles.occupantRow}>
-              <Ionicons name="time" size={16} color={theme.colors.gray[600]} />
-              <Text style={styles.checkoutTime}>Check-out: {room.checkoutTime}</Text>
-            </View>
-          )}
-          
-          {room.visitors !== undefined && room.visitors > 0 && (
-            <View style={styles.occupantRow}>
-              <Ionicons name="people" size={16} color={theme.colors.info} />
-              <Text style={styles.visitorCount}>{room.visitors} visitor{room.visitors !== 1 ? 's' : ''}</Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {room.status === 'maintenance' && (
-        <View style={styles.maintenanceInfo}>
-          <Ionicons name="construct" size={16} color={theme.colors.error} />
-          <Text style={styles.maintenanceText}>Under maintenance</Text>
-        </View>
-      )}
-
-      {room.status === 'available' && (
-        <View style={styles.availableInfo}>
-          <Ionicons name="checkmark-circle" size={16} color={theme.colors.success} />
-          <Text style={styles.availableText}>Ready for check-in</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-
-  const stats = {
-    total: rooms.length,
-    available: rooms.filter(r => r.status === 'available').length,
-    occupied: rooms.filter(r => r.status === 'occupied').length,
-    maintenance: rooms.filter(r => r.status === 'maintenance').length,
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'available': return theme.colors.success;
+      case 'occupied': return theme.colors.warning;
+      case 'maintenance': return theme.colors.error;
+      default: return theme.colors.gray[500];
+    }
   };
 
-  return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Card>
-        <Text style={styles.sectionTitle}>Room Overview</Text>
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{stats.total}</Text>
-            <Text style={styles.statLabel}>Total</Text>
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Card>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.secondary} />
+            <Text style={styles.loadingText}>Loading room data...</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.success }]}>{stats.available}</Text>
+        </Card>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Card>
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
+            <Text style={styles.errorText}>Failed to load room data</Text>
+            <Text style={styles.errorSubtext}>Using default values</Text>
+          </View>
+        </Card>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Card>
+        <Text style={styles.sectionTitle}>Room Status Overview</Text>
+
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.gray[100] }]}>
+              <Ionicons name="home" size={24} color={theme.colors.gray[600]} />
+            </View>
+            <Text style={styles.statValue}>{stats.total_rooms}</Text>
+            <Text style={styles.statLabel}>Total Rooms</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.success + '20' }]}>
+              <Ionicons name={getStatusIcon('available')} size={24} color={theme.colors.success} />
+            </View>
+            <Text style={[styles.statValue, { color: theme.colors.success }]}>{stats.available_rooms}</Text>
             <Text style={styles.statLabel}>Available</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.warning }]}>{stats.occupied}</Text>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.warning + '20' }]}>
+              <Ionicons name={getStatusIcon('occupied')} size={24} color={theme.colors.warning} />
+            </View>
+            <Text style={[styles.statValue, { color: theme.colors.warning }]}>{stats.occupied_rooms}</Text>
             <Text style={styles.statLabel}>Occupied</Text>
           </View>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.colors.error }]}>{stats.maintenance}</Text>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.error + '20' }]}>
+              <Ionicons name={getStatusIcon('maintenance')} size={24} color={theme.colors.error} />
+            </View>
+            <Text style={[styles.statValue, { color: theme.colors.error }]}>{stats.maintenance_rooms}</Text>
             <Text style={styles.statLabel}>Maintenance</Text>
           </View>
         </View>
       </Card>
-
-      <Card>
-        <Text style={styles.sectionTitle}>Filter Rooms</Text>
-        <View style={styles.filterContainer}>
-          {(['all', 'available', 'occupied', 'maintenance'] as const).map((filterType) => (
-            <TouchableOpacity
-              key={filterType}
-              style={[
-                styles.filterButton,
-                filter === filterType && styles.activeFilter
-              ]}
-              onPress={() => setFilter(filterType)}
-            >
-              <Text style={[
-                styles.filterText,
-                filter === filterType && styles.activeFilterText
-              ]}>
-                {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Card>
-
-      <Card>
-        <Text style={styles.sectionTitle}>Room Status</Text>
-        <View style={styles.roomsGrid}>
-          {filteredRooms.map((room) => (
-            <RoomCard key={room.id} room={room} />
-          ))}
-        </View>
-      </Card>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -184,141 +128,81 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.semibold,
+    fontSize: theme.typography.fontSize.xl,
+    fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.black,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
   },
-  statsContainer: {
+  statsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
-  statItem: {
+  statCard: {
+    width: '48%',
+    backgroundColor: theme.colors.white,
+    borderRadius: 16,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.gray[200],
+    shadowColor: theme.colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  statIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.sm,
   },
   statValue: {
     fontSize: theme.typography.fontSize.xxl,
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.black,
+    marginBottom: theme.spacing.xs,
   },
   statLabel: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray[600],
-    marginTop: theme.spacing.xs,
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  filterButton: {
-    flex: 1,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    marginHorizontal: theme.spacing.xs,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.gray[300],
-    alignItems: 'center',
-  },
-  activeFilter: {
-    backgroundColor: theme.colors.secondary,
-    borderColor: theme.colors.secondary,
-  },
-  filterText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray[700],
     fontWeight: theme.typography.fontWeight.medium,
+    textAlign: 'center',
   },
-  activeFilterText: {
-    color: theme.colors.white,
-  },
-  roomsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  roomCard: {
-    width: '48%',
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.gray[200],
-  },
-  roomHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: theme.spacing.sm,
-  },
-  roomNumberContainer: {
-    flex: 1,
-  },
-  roomNumber: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.black,
-  },
-  roomType: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray[600],
-  },
-  statusBadge: {
-    flexDirection: 'row',
+  loadingContainer: {
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: 12,
+    justifyContent: 'center',
+    padding: theme.spacing.xl,
   },
-  statusText: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.white,
-    fontWeight: theme.typography.fontWeight.semibold,
-    marginLeft: theme.spacing.xs,
-  },
-  occupantInfo: {
-    marginTop: theme.spacing.sm,
-  },
-  occupantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: theme.spacing.xs,
-  },
-  occupantName: {
+  loadingText: {
     fontSize: theme.typography.fontSize.md,
-    color: theme.colors.black,
-    marginLeft: theme.spacing.sm,
-    fontWeight: theme.typography.fontWeight.medium,
+    color: theme.colors.gray[600],
+    marginTop: theme.spacing.md,
   },
-  checkoutTime: {
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.xl,
+  },
+  errorText: {
+    fontSize: theme.typography.fontSize.lg,
+    color: theme.colors.error,
+    fontWeight: theme.typography.fontWeight.semibold,
+    marginTop: theme.spacing.md,
+    textAlign: 'center',
+  },
+  errorSubtext: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray[600],
-    marginLeft: theme.spacing.sm,
-  },
-  visitorCount: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.info,
-    marginLeft: theme.spacing.sm,
-  },
-  maintenanceInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginTop: theme.spacing.sm,
-  },
-  maintenanceText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.error,
-    marginLeft: theme.spacing.sm,
-  },
-  availableInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: theme.spacing.sm,
-  },
-  availableText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.success,
-    marginLeft: theme.spacing.sm,
+    textAlign: 'center',
   },
 });
