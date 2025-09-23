@@ -18,8 +18,6 @@ import { CreateBookingData } from '@/services/api';
 import { useGuestSearch } from '@/hooks/useGuestQueries';
 import { useCreateBooking } from '@/hooks/useBookingQueries';
 
-// Remove the local Guest type since we're importing from API service
-
 type CheckInFormData = {
   guestName: string;
   phone: string;
@@ -55,6 +53,13 @@ export default function CheckInScreen() {
   });
 
   const [idPhotoUri, setIdPhotoUri] = useState<string | null>(null);
+
+  // helpers
+  const isValidPhone = (phone: string) => /^\d{11}$/.test(phone);
+  const handlePhoneChange = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    setPhoneNumber(digits);
+  };
 
   // TanStack Query hooks
   const { data: guestSearchResult, isLoading: guestSearchLoading, error: guestSearchError } = useGuestSearch(
@@ -129,10 +134,24 @@ export default function CheckInScreen() {
   };
 
   const proceedToGuestInfo = () => {
+    if (!isValidPhone(phoneNumber)) {
+      Alert.alert('Invalid Phone', 'Phone number must be 11 digits.');
+      return;
+    }
+    setFormData((prev: CheckInFormData) => ({ ...prev, phone: phoneNumber }));
     setCurrentStep('guest-info');
   };
 
   const proceedToPayment = () => {
+    const phone = formData.phone || phoneNumber;
+    if (!formData.guestName.trim()) {
+      Alert.alert('Missing Information', 'Please enter the guest name.');
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      Alert.alert('Invalid Phone', 'Phone number must be 11 digits.');
+      return;
+    }
     setCurrentStep('payment');
   };
 
@@ -190,7 +209,6 @@ export default function CheckInScreen() {
   const openCamera = async () => {
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -208,7 +226,6 @@ export default function CheckInScreen() {
   const openImagePicker = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -231,13 +248,13 @@ export default function CheckInScreen() {
   };
 
   const handleCheckIn = async () => {
-    if (!formData.guestName || !formData.phone) {
-      Alert.alert('Missing Information', 'Please fill in guest name and phone number.');
+    const phone = formData.phone || phoneNumber;
+    if (!formData.guestName?.trim()) {
+      Alert.alert('Missing Information', 'Please enter guest name.');
       return;
     }
-
-    if (!formData.amount) {
-      Alert.alert('Missing Amount', 'Please enter the payment amount.');
+    if (!isValidPhone(phone)) {
+      Alert.alert('Invalid Phone', 'Phone number must be 11 digits.');
       return;
     }
 
@@ -259,7 +276,7 @@ export default function CheckInScreen() {
         const booking = response.data;
         Alert.alert(
           'Check-In Successful',
-          `Guest ${formData.guestName} has been checked into Room ${booking.room_number} (Bed Space ${booking.bed_space}).\n\nBooking Reference: ${booking.booking_reference}\nTotal Amount: ₱${booking.total_amount}`,
+          `Guest ${formData.guestName} has been checked into Room ${booking.room_number} (Bed Space ${booking.bed_space}).\n\nBooking Reference: ${booking.booking_reference}\nTotal Amount: ₦${booking.total_amount}`,
           [
             {
               text: 'OK',
@@ -339,9 +356,10 @@ export default function CheckInScreen() {
       <Input
         label="Phone Number *"
         value={phoneNumber}
-        onChangeText={setPhoneNumber}
+        onChangeText={handlePhoneChange}
         placeholder="Enter phone number"
         keyboardType="phone-pad"
+        maxLength={11}
       />
 
       {foundGuest && (
@@ -383,7 +401,7 @@ export default function CheckInScreen() {
             title="Continue"
             onPress={proceedToGuestInfo}
             variant="outline"
-            disabled={loading}
+            disabled={loading || !isValidPhone(phoneNumber)}
           />
         )}
       </View>
@@ -503,17 +521,11 @@ export default function CheckInScreen() {
         />
       )}
 
-      <Input
-        label="Amount"
-        value={formData.amount}
-        onChangeText={(value: string) => handleInputChange('amount', value)}
-        placeholder={`Suggested: ₱${calculateAmount()}`}
-        keyboardType="numeric"
-      />
+
 
       <View style={styles.amountBreakdown}>
         <Text style={styles.breakdownText}>
-          {formData.nights} nights × ₱2,000 = ₱{calculateAmount()}
+          {formData.nights} nights × ₦2,000 = ₦{calculateAmount()}
         </Text>
       </View>
 
@@ -528,7 +540,7 @@ export default function CheckInScreen() {
           title="Complete Check-In"
           onPress={handleCheckIn}
           loading={loading}
-          disabled={!formData.amount}
+          disabled={false}
         />
       </View>
     </Card>
