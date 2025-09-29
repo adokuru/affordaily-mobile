@@ -157,6 +157,12 @@ class ApiService {
       },
     };
 
+    // If sending FormData, let fetch set the correct multipart boundary
+    if (options.body instanceof FormData && config.headers) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (config.headers as any)['Content-Type'];
+    }
+
     try {
       const response = await fetch(url, config);
       const data = await response.json();
@@ -202,7 +208,15 @@ class ApiService {
   }
 
   // Booking methods
-  async createBooking(data: CreateBookingData): Promise<BookingResponse> {
+  async createBooking(data: CreateBookingData | FormData): Promise<BookingResponse> {
+    // Allow caller to pass either FormData (with file) or JSON payload
+    if (data instanceof FormData) {
+      return this.request<BookingResponse>('/bookings', {
+        method: 'POST',
+        body: data,
+      });
+    }
+
     return this.request<BookingResponse>('/bookings', {
       method: 'POST',
       body: JSON.stringify(data),

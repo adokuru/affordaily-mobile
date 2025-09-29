@@ -259,18 +259,40 @@ export default function CheckInScreen() {
     }
 
     try {
-      const bookingData: CreateBookingData = {
-        guest_name: formData.guestName,
-        guest_phone: formData.phone,
-        id_photo_path: idPhotoUri || undefined,
-        number_of_nights: parseInt(formData.nights) || 1,
-        preferred_bed_type: 'A', // Default to A, can be made configurable
-        payment_method: formData.paymentMethod,
-        payer_name: formData.guestName,
-        reference: formData.paymentMethod === 'transfer' ? formData.transferReference : undefined,
-      };
+      // Build payload: use FormData only when we have an image
+      let payload: CreateBookingData | FormData;
 
-      const response = await createBookingMutation.mutateAsync(bookingData);
+      if (idPhotoUri) {
+        const form = new FormData();
+        form.append('guest_name', formData.guestName);
+        form.append('guest_phone', formData.phone);
+        form.append('number_of_nights', String(parseInt(formData.nights) || 1));
+        form.append('preferred_bed_type', 'A');
+        form.append('payment_method', formData.paymentMethod);
+        form.append('payer_name', formData.guestName);
+        if (formData.paymentMethod === 'transfer' && formData.transferReference) {
+          form.append('reference', formData.transferReference);
+        }
+
+        const filename = idPhotoUri.split('/').pop() || 'id-photo.jpg';
+        const ext = filename.split('.').pop()?.toLowerCase();
+        const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+        form.append('id_photo_path', { uri: idPhotoUri, name: filename, type: mime } as any);
+
+        payload = form;
+      } else {
+        payload = {
+          guest_name: formData.guestName,
+          guest_phone: formData.phone,
+          number_of_nights: parseInt(formData.nights) || 1,
+          preferred_bed_type: 'A',
+          payment_method: formData.paymentMethod,
+          payer_name: formData.guestName,
+          reference: formData.paymentMethod === 'transfer' ? formData.transferReference : undefined,
+        };
+      }
+
+      const response = await createBookingMutation.mutateAsync(payload as any);
 
       if (response.success) {
         const booking = response.data;
