@@ -1,11 +1,11 @@
-import React from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs, Redirect } from 'expo-router';
-import { theme } from '@/constants/Theme';
-import { useAuth } from '@/contexts/AuthContext';
+import React from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { Tabs, Redirect } from "expo-router";
+import { theme } from "@/constants/Theme";
+import { useAuth } from "@/contexts/AuthContext";
 
 function TabBarIcon(props: {
-  name: React.ComponentProps<typeof Ionicons>['name'];
+  name: React.ComponentProps<typeof Ionicons>["name"];
   color: string;
 }) {
   return <Ionicons size={24} style={{ marginBottom: -3 }} {...props} />;
@@ -41,35 +41,46 @@ export default function TabLayout() {
         },
         headerTintColor: theme.colors.black,
         headerTitleStyle: {
-          fontWeight: '600',
+          fontWeight: "600",
         },
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: "Dashboard",
           tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
         }}
       />
       <Tabs.Screen
         name="checkin"
         options={{
-          title: 'Check In',
-          tabBarIcon: ({ color }) => <TabBarIcon name="person-add" color={color} />,
+          title: "Check In",
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="person-add" color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="checkout"
         options={{
-          title: 'Check Out',
-          tabBarIcon: ({ color }) => <TabBarIcon name="person-remove" color={color} />,
+          title: "Check Out",
+          tabBarIcon: ({ color }) => (
+            <TabBarIcon name="person-remove" color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="rooms"
         options={{
-          title: 'Rooms',
+          title: "Rooms",
           tabBarIcon: ({ color }) => <TabBarIcon name="bed" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="booking-summary"
+        options={{
+          href: null, // Hide from tab bar
         }}
       />
     </Tabs>

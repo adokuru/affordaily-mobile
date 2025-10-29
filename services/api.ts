@@ -1,4 +1,6 @@
-const BASE_URL = 'http://affordaily-api.test/api/v1';
+import { config } from "@/config/environment";
+
+const BASE_URL = config.apiUrl;
 
 export interface LoginCredentials {
   email: string;
@@ -44,21 +46,44 @@ export interface GuestSearchResponse {
 export interface Booking {
   id: number;
   booking_reference: string;
-  guest_name: string;
-  guest_phone: string;
-  id_photo_path?: string;
-  number_of_nights: number;
-  preferred_bed_type: 'A' | 'B';
-  payment_method: 'cash' | 'transfer';
-  payer_name: string;
-  reference?: string;
-  room_id: number;
-  room_number: string;
-  bed_space: 'A' | 'B';
-  total_amount: number;
-  status: 'active' | 'pending_checkout' | 'completed' | 'auto_checkout' | 'early_checkout';
+  guest?: {
+    id: number;
+    name: string;
+    phone: string;
+    email?: string;
+    total_stays?: number;
+    total_spent?: number;
+  };
+  guest_name?: string;
+  guest_phone?: string;
+  room?: {
+    id: number;
+    room_number: string;
+    bed_type: string;
+  };
+  room_id?: number;
+  room_number?: string;
+  bed_space?: "A" | "B";
   check_in_time: string;
-  check_out_time?: string;
+  check_out_time?: string | null;
+  scheduled_checkout_time?: string;
+  number_of_nights: number;
+  status:
+    | "active"
+    | "pending_checkout"
+    | "completed"
+    | "auto_checkout"
+    | "early_checkout"
+    | "checked_in";
+  total_amount: number;
+  amount_paid?: number;
+  remaining_balance?: number;
+  preferred_bed_type?: "A" | "B";
+  payment_method?: "cash" | "transfer";
+  payer_name?: string;
+  reference?: string;
+  damage_notes?: string | null;
+  key_returned?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -68,8 +93,8 @@ export interface CreateBookingData {
   guest_phone: string;
   id_photo_path?: string;
   number_of_nights: number;
-  preferred_bed_type: 'A' | 'B';
-  payment_method: 'cash' | 'transfer';
+  preferred_bed_type: "A" | "B";
+  payment_method: "cash" | "transfer";
   payer_name: string;
   reference?: string;
 }
@@ -98,7 +123,7 @@ class ApiService {
         this.setToken(storedToken);
       }
     } catch (error) {
-      console.log('No stored token found');
+      console.log("No stored token found");
     }
   }
 
@@ -111,13 +136,13 @@ class ApiService {
   private async storeToken(token: string): Promise<void> {
     // This would typically use AsyncStorage or SecureStore
     // For now, just store in memory - you can implement this later
-    console.log('Token stored:', token);
+    console.log("Token stored:", token);
   }
 
   private async removeToken(): Promise<void> {
     // This would typically use AsyncStorage or SecureStore
     // For now, just clear from memory - you can implement this later
-    console.log('Token removed');
+    console.log("Token removed");
   }
 
   setToken(token: string) {
@@ -132,12 +157,12 @@ class ApiService {
 
   getAuthHeaders() {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      "Content-Type": "application/json",
+      Accept: "application/json",
     };
 
     if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+      headers["Authorization"] = `Bearer ${this.token}`;
     }
 
     return headers;
@@ -148,8 +173,8 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    
-    const config: RequestInit = {
+
+    const requestConfig: RequestInit = {
       ...options,
       headers: {
         ...this.getAuthHeaders(),
@@ -158,93 +183,167 @@ class ApiService {
     };
 
     // If sending FormData, let fetch set the correct multipart boundary
-    if (options.body instanceof FormData && config.headers) {
+    if (options.body instanceof FormData && requestConfig.headers) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      delete (config.headers as any)['Content-Type'];
+      delete (requestConfig.headers as any)["Content-Type"];
     }
 
     try {
-      const response = await fetch(url, config);
+      if (config.enableDebugLogs) {
+        console.log("API Request:", url);
+        console.log("Request method:", options.method || "GET");
+        if (!(options.body instanceof FormData)) {
+          console.log("Request body:", options.body);
+        }
+      }
+
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), config.apiTimeout);
+
+      const response = await fetch(url, {
+        ...requestConfig,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      // Log response details for debugging
+      if (config.enableDebugLogs) {
+        console.log("Response status:", response.status);
+        console.log(
+          "Response headers:",
+          Object.fromEntries(response.headers.entries())
+        );
+      }
+
+      // Check if response is JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Non-JSON response received:", text.substring(0, 200));
+        throw new Error(
+          `Server returned ${
+            contentType || "unknown content type"
+          } instead of JSON. ` +
+            `Status: ${response.status}. This usually means:\n` +
+            `1. The API endpoint doesn't exist (check the URL)\n` +
+            `2. The server has an error\n` +
+            `3. You're not connected to the API server\n\n` +
+            `URL attempted: ${url}`
+        );
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          data.message || `HTTP error! status: ${response.status}`
+        );
       }
 
       return data;
     } catch (error) {
-      console.error('API request failed:', error);
+      if (error instanceof Error) {
+        // Check if it's a timeout error
+        if (error.name === "AbortError") {
+          console.error("API request timeout:", url);
+          throw new Error(
+            `Request timeout after ${config.apiTimeout}ms. Check your internet connection and API server.`
+          );
+        }
+
+        console.error("API request failed:", {
+          url,
+          message: error.message,
+          error,
+        });
+      } else {
+        console.error("API request failed:", error);
+      }
       throw error;
     }
   }
 
   // Authentication methods
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    return this.request<AuthResponse>('/login', {
-      method: 'POST',
+    return this.request<AuthResponse>("/login", {
+      method: "POST",
       body: JSON.stringify(credentials),
     });
   }
 
   async logout(): Promise<void> {
     try {
-      await this.request('/logout', {
-        method: 'POST',
+      await this.request("/logout", {
+        method: "POST",
       });
     } catch (error) {
-      console.error('Logout API call failed:', error);
+      console.error("Logout API call failed:", error);
     } finally {
       this.clearToken();
     }
   }
 
   async getProfile(): Promise<User> {
-    return this.request<User>('/user');
+    return this.request<User>("/user");
   }
 
   // Guest methods
   async searchGuestByPhone(phone: string): Promise<GuestSearchResponse> {
-    return this.request<GuestSearchResponse>(`/guests/search/phone?phone=${encodeURIComponent(phone)}`);
+    return this.request<GuestSearchResponse>(
+      `/guests/search/phone?phone=${encodeURIComponent(phone)}`
+    );
   }
 
   // Booking methods
-  async createBooking(data: CreateBookingData | FormData): Promise<BookingResponse> {
+  async createBooking(
+    data: CreateBookingData | FormData
+  ): Promise<BookingResponse> {
     // Allow caller to pass either FormData (with file) or JSON payload
     if (data instanceof FormData) {
-      return this.request<BookingResponse>('/bookings', {
-        method: 'POST',
+      return this.request<BookingResponse>("/bookings", {
+        method: "POST",
         body: data,
       });
     }
 
-    return this.request<BookingResponse>('/bookings', {
-      method: 'POST',
+    return this.request<BookingResponse>("/bookings", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
 
   async getBookings(): Promise<{ success: boolean; data: Booking[] }> {
-    return this.request<{ success: boolean; data: Booking[] }>('/bookings');
+    return this.request<{ success: boolean; data: Booking[] }>("/bookings");
   }
 
   async getActiveBookings(): Promise<{ success: boolean; data: Booking[] }> {
-    return this.request<{ success: boolean; data: Booking[] }>('/bookings/active');
+    return this.request<{ success: boolean; data: Booking[] }>(
+      "/bookings/active"
+    );
   }
 
-  async checkoutBooking(bookingId: number, data: {
-    damage_notes?: string;
-    key_returned?: boolean;
-    early_checkout?: boolean;
-  }): Promise<BookingResponse> {
+  async checkoutBooking(
+    bookingId: number,
+    data: {
+      damage_notes?: string;
+      key_returned?: boolean;
+      early_checkout?: boolean;
+    }
+  ): Promise<BookingResponse> {
     return this.request<BookingResponse>(`/bookings/${bookingId}/checkout`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async extendBooking(bookingId: number, additionalNights: number): Promise<BookingResponse> {
+  async extendBooking(
+    bookingId: number,
+    additionalNights: number
+  ): Promise<BookingResponse> {
     return this.request<BookingResponse>(`/bookings/${bookingId}/extend`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ additional_nights: additionalNights }),
     });
   }

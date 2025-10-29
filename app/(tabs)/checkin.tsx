@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,49 +7,51 @@ import {
   Alert,
   TouchableOpacity,
   Image,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, router } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 
-import { theme } from '@/constants/Theme';
-import { Button, Card, Input } from '@/components/ui';
-import { CreateBookingData } from '@/services/api';
-import { useGuestSearch } from '@/hooks/useGuestQueries';
-import { useCreateBooking } from '@/hooks/useBookingQueries';
+import { theme } from "@/constants/Theme";
+import { Button, Card, Input } from "@/components/ui";
+import { CreateBookingData } from "@/services/api";
+import { useGuestSearch } from "@/hooks/useGuestQueries";
+import { useCreateBooking } from "@/hooks/useBookingQueries";
 
 type CheckInFormData = {
   guestName: string;
   phone: string;
   idNumber: string;
   nights: string;
-  paymentMethod: 'cash' | 'transfer';
+  paymentMethod: "cash" | "transfer";
   transferReference: string;
   amount: string;
 };
 
-type FormStep = 'phone' | 'guest-info' | 'payment';
+type FormStep = "phone" | "guest-info" | "payment";
 
 export default function CheckInScreen() {
-  const { guest_name, guest_phone, id_photo_path, number_of_nights } = useLocalSearchParams<{
-    guest_name?: string | string[];
-    guest_phone?: string | string[];
-    id_photo_path?: string | string[];
-    number_of_nights?: string | string[];
-  }>();
+  const { guest_name, guest_phone, id_photo_path, number_of_nights } =
+    useLocalSearchParams<{
+      guest_name?: string | string[];
+      guest_phone?: string | string[];
+      id_photo_path?: string | string[];
+      number_of_nights?: string | string[];
+    }>();
 
-  const toSingle = (value?: string | string[]) => Array.isArray(value) ? value[0] : value;
+  const toSingle = (value?: string | string[]) =>
+    Array.isArray(value) ? value[0] : value;
 
-  const [currentStep, setCurrentStep] = useState<FormStep>('phone');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [currentStep, setCurrentStep] = useState<FormStep>("phone");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [formData, setFormData] = useState<CheckInFormData>({
-    guestName: '',
-    phone: '',
-    idNumber: '',
-    nights: '1',
-    paymentMethod: 'cash',
-    transferReference: '',
-    amount: '',
+    guestName: "",
+    phone: "",
+    idNumber: "",
+    nights: "1",
+    paymentMethod: "cash",
+    transferReference: "",
+    amount: "",
   });
 
   const [idPhotoUri, setIdPhotoUri] = useState<string | null>(null);
@@ -57,15 +59,16 @@ export default function CheckInScreen() {
   // helpers
   const isValidPhone = (phone: string) => /^\d{11}$/.test(phone);
   const handlePhoneChange = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 11);
+    const digits = value.replace(/\D/g, "").slice(0, 11);
     setPhoneNumber(digits);
   };
 
   // TanStack Query hooks
-  const { data: guestSearchResult, isLoading: guestSearchLoading, error: guestSearchError } = useGuestSearch(
-    phoneNumber,
-    phoneNumber.trim().length > 0
-  );
+  const {
+    data: guestSearchResult,
+    isLoading: guestSearchLoading,
+    error: guestSearchError,
+  } = useGuestSearch(phoneNumber, phoneNumber.trim().length > 0);
   const createBookingMutation = useCreateBooking();
 
   const foundGuest = guestSearchResult?.data || null;
@@ -83,7 +86,6 @@ export default function CheckInScreen() {
         ...prev,
         phone: phone,
       }));
-      // TanStack Query will automatically handle the lookup when phoneNumber changes
     }
 
     if (name) {
@@ -108,26 +110,26 @@ export default function CheckInScreen() {
   // Update form data when guest search results change
   useEffect(() => {
     if (foundGuest && phoneNumber) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         guestName: foundGuest.name,
         phone: foundGuest.phone,
-        idNumber: '', // API doesn't return ID number in search
+        idNumber: "", // API doesn't return ID number in search
       }));
     } else if (phoneNumber && !guestSearchLoading && !guestSearchError) {
       // Guest not found, clear form data
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         phone: phoneNumber,
-        guestName: '',
-        idNumber: '',
+        guestName: "",
+        idNumber: "",
       }));
     }
   }, [foundGuest, phoneNumber, guestSearchLoading, guestSearchError]);
 
   const handlePhoneSubmit = () => {
     if (!phoneNumber.trim()) {
-      Alert.alert('Missing Phone', 'Please enter a phone number');
+      Alert.alert("Missing Phone", "Please enter a phone number");
       return;
     }
     // TanStack Query automatically handles the lookup when phoneNumber changes
@@ -135,31 +137,31 @@ export default function CheckInScreen() {
 
   const proceedToGuestInfo = () => {
     if (!isValidPhone(phoneNumber)) {
-      Alert.alert('Invalid Phone', 'Phone number must be 11 digits.');
+      Alert.alert("Invalid Phone", "Phone number must be 11 digits.");
       return;
     }
     setFormData((prev: CheckInFormData) => ({ ...prev, phone: phoneNumber }));
-    setCurrentStep('guest-info');
+    setCurrentStep("guest-info");
   };
 
   const proceedToPayment = () => {
     const phone = formData.phone || phoneNumber;
     if (!formData.guestName.trim()) {
-      Alert.alert('Missing Information', 'Please enter the guest name.');
+      Alert.alert("Missing Information", "Please enter the guest name.");
       return;
     }
     if (!isValidPhone(phone)) {
-      Alert.alert('Invalid Phone', 'Phone number must be 11 digits.');
+      Alert.alert("Invalid Phone", "Phone number must be 11 digits.");
       return;
     }
-    setCurrentStep('payment');
+    setCurrentStep("payment");
   };
 
   const goBack = () => {
-    if (currentStep === 'guest-info') {
-      setCurrentStep('phone');
-    } else if (currentStep === 'payment') {
-      setCurrentStep('guest-info');
+    if (currentStep === "guest-info") {
+      setCurrentStep("phone");
+    } else if (currentStep === "payment") {
+      setCurrentStep("guest-info");
     }
   };
 
@@ -170,39 +172,40 @@ export default function CheckInScreen() {
   const captureIdPhoto = async () => {
     try {
       // Request camera permissions
-      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+      const cameraPermission =
+        await ImagePicker.requestCameraPermissionsAsync();
 
-      if (cameraPermission.status !== 'granted') {
+      if (cameraPermission.status !== "granted") {
         Alert.alert(
-          'Camera Permission Required',
-          'Please grant camera permission to capture ID photos.',
-          [{ text: 'OK' }]
+          "Camera Permission Required",
+          "Please grant camera permission to capture ID photos.",
+          [{ text: "OK" }]
         );
         return;
       }
 
       // Show action sheet for camera options
       Alert.alert(
-        'Capture ID Photo',
-        'Choose how you want to capture the guest ID photo:',
+        "Capture ID Photo",
+        "Choose how you want to capture the guest ID photo:",
         [
           {
-            text: 'Camera',
+            text: "Camera",
             onPress: openCamera,
           },
           {
-            text: 'Photo Library',
+            text: "Photo Library",
             onPress: openImagePicker,
           },
           {
-            text: 'Cancel',
-            style: 'cancel',
+            text: "Cancel",
+            style: "cancel",
           },
         ]
       );
     } catch (error) {
-      console.error('Error requesting camera permission:', error);
-      Alert.alert('Error', 'Failed to access camera. Please try again.');
+      console.error("Error requesting camera permission:", error);
+      Alert.alert("Error", "Failed to access camera. Please try again.");
     }
   };
 
@@ -218,8 +221,8 @@ export default function CheckInScreen() {
         setIdPhotoUri(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Error opening camera:', error);
-      Alert.alert('Error', 'Failed to open camera. Please try again.');
+      console.error("Error opening camera:", error);
+      Alert.alert("Error", "Failed to open camera. Please try again.");
     }
   };
 
@@ -235,8 +238,8 @@ export default function CheckInScreen() {
         setIdPhotoUri(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Error opening image picker:', error);
-      Alert.alert('Error', 'Failed to open photo library. Please try again.');
+      console.error("Error opening image picker:", error);
+      Alert.alert("Error", "Failed to open photo library. Please try again.");
     }
   };
 
@@ -250,11 +253,11 @@ export default function CheckInScreen() {
   const handleCheckIn = async () => {
     const phone = formData.phone || phoneNumber;
     if (!formData.guestName?.trim()) {
-      Alert.alert('Missing Information', 'Please enter guest name.');
+      Alert.alert("Missing Information", "Please enter guest name.");
       return;
     }
     if (!isValidPhone(phone)) {
-      Alert.alert('Invalid Phone', 'Phone number must be 11 digits.');
+      Alert.alert("Invalid Phone", "Phone number must be 11 digits.");
       return;
     }
 
@@ -264,20 +267,32 @@ export default function CheckInScreen() {
 
       if (idPhotoUri) {
         const form = new FormData();
-        form.append('guest_name', formData.guestName);
-        form.append('guest_phone', formData.phone);
-        form.append('number_of_nights', String(parseInt(formData.nights) || 1));
-        form.append('preferred_bed_type', 'A');
-        form.append('payment_method', formData.paymentMethod);
-        form.append('payer_name', formData.guestName);
-        if (formData.paymentMethod === 'transfer' && formData.transferReference) {
-          form.append('reference', formData.transferReference);
+        form.append("guest_name", formData.guestName);
+        form.append("guest_phone", formData.phone);
+        form.append("number_of_nights", String(parseInt(formData.nights) || 1));
+        form.append("preferred_bed_type", "A");
+        form.append("payment_method", formData.paymentMethod);
+        form.append("payer_name", formData.guestName);
+        if (
+          formData.paymentMethod === "transfer" &&
+          formData.transferReference
+        ) {
+          form.append("reference", formData.transferReference);
         }
 
-        const filename = idPhotoUri.split('/').pop() || 'id-photo.jpg';
-        const ext = filename.split('.').pop()?.toLowerCase();
-        const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-        form.append('id_photo_path', { uri: idPhotoUri, name: filename, type: mime } as any);
+        const filename = idPhotoUri.split("/").pop() || "id-photo.jpg";
+        const ext = filename.split(".").pop()?.toLowerCase();
+        const mime =
+          ext === "png"
+            ? "image/png"
+            : ext === "webp"
+            ? "image/webp"
+            : "image/jpeg";
+        form.append("id_photo_path", {
+          uri: idPhotoUri,
+          name: filename,
+          type: mime,
+        } as any);
 
         payload = form;
       } else {
@@ -285,10 +300,13 @@ export default function CheckInScreen() {
           guest_name: formData.guestName,
           guest_phone: formData.phone,
           number_of_nights: parseInt(formData.nights) || 1,
-          preferred_bed_type: 'A',
+          preferred_bed_type: "A",
           payment_method: formData.paymentMethod,
           payer_name: formData.guestName,
-          reference: formData.paymentMethod === 'transfer' ? formData.transferReference : undefined,
+          reference:
+            formData.paymentMethod === "transfer"
+              ? formData.transferReference
+              : undefined,
         };
       }
 
@@ -296,70 +314,73 @@ export default function CheckInScreen() {
 
       if (response.success) {
         const booking = response.data;
-        Alert.alert(
-          'Check-In Successful',
-          `Guest ${formData.guestName} has been checked into Room ${booking.room_number} (Bed Space ${booking.bed_space}).\n\nBooking Reference: ${booking.booking_reference}\nTotal Amount: ₦${booking.total_amount}`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Reset form
-                setFormData({
-                  guestName: '',
-                  phone: '',
-                  idNumber: '',
-                  nights: '1',
-                  paymentMethod: 'cash',
-                  transferReference: '',
-                  amount: '',
-                });
-                setPhoneNumber('');
-                setIdPhotoUri(null);
-                setCurrentStep('phone');
-              }
-            }
-          ]
-        );
+
+        // Navigate to booking summary screen
+        router.push({
+          pathname: "/(tabs)/booking-summary",
+          params: {
+            id: booking.id?.toString() || "",
+            booking_reference: booking.booking_reference || "",
+            guest_name: booking.guest?.name || "",
+            guest_phone: booking.guest?.phone || "",
+            room_number: booking.room?.room_number || "",
+            bed_type: booking.room?.bed_type || "",
+            check_in_time: booking.check_in_time || "",
+            check_out_time: booking.check_out_time || "",
+            scheduled_checkout_time: booking.scheduled_checkout_time || "",
+            number_of_nights: booking.number_of_nights?.toString() || "",
+            status: booking.status || "",
+            total_amount: booking.total_amount?.toString() || "",
+            amount_paid: booking.amount_paid?.toString() || "",
+            remaining_balance: booking.remaining_balance?.toString() || "",
+          },
+        });
       }
     } catch (error: any) {
-      console.error('Check-in failed:', error);
+      console.error("Check-in failed:", error);
       Alert.alert(
-        'Check-In Failed',
-        error.message || 'Failed to process check-in. Please try again.'
+        "Check-In Failed",
+        error.message || "Failed to process check-in. Please try again."
       );
     }
   };
 
   const renderStepIndicator = () => {
     const steps = [
-      { key: 'phone', label: 'Phone', icon: 'call' },
-      { key: 'guest-info', label: 'Guest Info', icon: 'person' },
-      { key: 'payment', label: 'Payment', icon: 'card' },
+      { key: "phone", label: "Phone", icon: "call" },
+      { key: "guest-info", label: "Guest Info", icon: "person" },
+      { key: "payment", label: "Payment", icon: "card" },
     ];
 
     return (
       <View style={styles.stepIndicator}>
         {steps.map((step, index) => (
           <View key={step.key} style={styles.stepItem}>
-            <View style={[
-              styles.stepIcon,
-              currentStep === step.key && styles.activeStepIcon,
-              steps.findIndex(s => s.key === currentStep) > index && styles.completedStepIcon
-            ]}>
+            <View
+              style={[
+                styles.stepIcon,
+                currentStep === step.key && styles.activeStepIcon,
+                steps.findIndex((s) => s.key === currentStep) > index &&
+                  styles.completedStepIcon,
+              ]}
+            >
               <Ionicons
                 name={step.icon as any}
                 size={16}
                 color={
-                  currentStep === step.key || steps.findIndex(s => s.key === currentStep) > index
+                  currentStep === step.key ||
+                  steps.findIndex((s) => s.key === currentStep) > index
                     ? theme.colors.white
                     : theme.colors.gray[500]
                 }
               />
             </View>
-            <Text style={[
-              styles.stepLabel,
-              currentStep === step.key && styles.activeStepLabel
-            ]}>
+            <Text
+              style={[
+                styles.stepLabel,
+                currentStep === step.key && styles.activeStepLabel,
+              ]}
+            >
               {step.label}
             </Text>
           </View>
@@ -372,7 +393,8 @@ export default function CheckInScreen() {
     <Card>
       <Text style={styles.sectionTitle}>Guest Lookup</Text>
       <Text style={styles.stepDescription}>
-        Enter the guest's phone number to check if they are a returning customer.
+        Enter the guest's phone number to check if they are a returning
+        customer.
       </Text>
 
       <Input
@@ -387,13 +409,15 @@ export default function CheckInScreen() {
       {foundGuest && (
         <View style={styles.foundGuestCard}>
           <View style={styles.guestHeader}>
-            <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
+            <Ionicons
+              name="checkmark-circle"
+              size={24}
+              color={theme.colors.success}
+            />
             <Text style={styles.foundGuestTitle}>Returning Guest Found!</Text>
           </View>
           <Text style={styles.guestName}>{foundGuest.name}</Text>
-          <Text style={styles.guestDetails}>
-            Phone: {foundGuest.phone}
-          </Text>
+          <Text style={styles.guestDetails}>Phone: {foundGuest.phone}</Text>
         </View>
       )}
 
@@ -404,7 +428,8 @@ export default function CheckInScreen() {
             <Text style={styles.newGuestTitle}>New Guest</Text>
           </View>
           <Text style={styles.newGuestText}>
-            This phone number is not in our system. You'll need to fill in their information.
+            This phone number is not in our system. You'll need to fill in their
+            information.
           </Text>
         </View>
       )}
@@ -446,21 +471,21 @@ export default function CheckInScreen() {
       <Input
         label="Guest Name *"
         value={formData.guestName}
-        onChangeText={(value: string) => handleInputChange('guestName', value)}
+        onChangeText={(value: string) => handleInputChange("guestName", value)}
         placeholder="Enter guest full name"
       />
 
       <Input
         label="ID Number"
         value={formData.idNumber}
-        onChangeText={(value: string) => handleInputChange('idNumber', value)}
+        onChangeText={(value: string) => handleInputChange("idNumber", value)}
         placeholder="Enter ID number"
       />
 
       <TouchableOpacity style={styles.idPhotoButton} onPress={captureIdPhoto}>
         <Ionicons name="camera" size={24} color={theme.colors.secondary} />
         <Text style={styles.idPhotoText}>
-          {idPhotoUri ? 'Change ID Photo' : 'Capture ID Photo'}
+          {idPhotoUri ? "Change ID Photo" : "Capture ID Photo"}
         </Text>
       </TouchableOpacity>
 
@@ -472,7 +497,11 @@ export default function CheckInScreen() {
               style={styles.removePhotoButton}
               onPress={() => setIdPhotoUri(null)}
             >
-              <Ionicons name="close-circle" size={24} color={theme.colors.error} />
+              <Ionicons
+                name="close-circle"
+                size={24}
+                color={theme.colors.error}
+              />
             </TouchableOpacity>
           </View>
           <Text style={styles.idPhotoCaption}>ID Photo Captured</Text>
@@ -482,7 +511,7 @@ export default function CheckInScreen() {
       <Input
         label="Number of Nights"
         value={formData.nights}
-        onChangeText={(value: string) => handleInputChange('nights', value)}
+        onChangeText={(value: string) => handleInputChange("nights", value)}
         placeholder="Enter number of nights"
         keyboardType="numeric"
       />
@@ -514,9 +543,9 @@ export default function CheckInScreen() {
         <TouchableOpacity
           style={[
             styles.paymentOption,
-            formData.paymentMethod === 'cash' && styles.selectedPayment
+            formData.paymentMethod === "cash" && styles.selectedPayment,
           ]}
-          onPress={() => handleInputChange('paymentMethod', 'cash')}
+          onPress={() => handleInputChange("paymentMethod", "cash")}
         >
           <Ionicons name="cash" size={24} color={theme.colors.secondary} />
           <Text style={styles.paymentText}>Cash</Text>
@@ -525,25 +554,25 @@ export default function CheckInScreen() {
         <TouchableOpacity
           style={[
             styles.paymentOption,
-            formData.paymentMethod === 'transfer' && styles.selectedPayment
+            formData.paymentMethod === "transfer" && styles.selectedPayment,
           ]}
-          onPress={() => handleInputChange('paymentMethod', 'transfer')}
+          onPress={() => handleInputChange("paymentMethod", "transfer")}
         >
           <Ionicons name="card" size={24} color={theme.colors.secondary} />
           <Text style={styles.paymentText}>Transfer</Text>
         </TouchableOpacity>
       </View>
 
-      {formData.paymentMethod === 'transfer' && (
+      {formData.paymentMethod === "transfer" && (
         <Input
           label="Transfer Reference"
           value={formData.transferReference}
-          onChangeText={(value: string) => handleInputChange('transferReference', value)}
+          onChangeText={(value: string) =>
+            handleInputChange("transferReference", value)
+          }
           placeholder="Enter transfer reference"
         />
       )}
-
-
 
       <View style={styles.amountBreakdown}>
         <Text style={styles.breakdownText}>
@@ -572,9 +601,9 @@ export default function CheckInScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {renderStepIndicator()}
 
-      {currentStep === 'phone' && renderPhoneStep()}
-      {currentStep === 'guest-info' && renderGuestInfoStep()}
-      {currentStep === 'payment' && renderPaymentStep()}
+      {currentStep === "phone" && renderPhoneStep()}
+      {currentStep === "guest-info" && renderGuestInfoStep()}
+      {currentStep === "payment" && renderPaymentStep()}
     </ScrollView>
   );
 }
@@ -598,14 +627,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   stepIndicator: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: theme.spacing.lg,
     marginBottom: theme.spacing.md,
   },
   stepItem: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
   },
   stepIcon: {
@@ -613,8 +642,8 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: theme.colors.gray[300],
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: theme.spacing.xs,
   },
   activeStepIcon: {
@@ -633,24 +662,24 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.semibold,
   },
   foundGuestCard: {
-    backgroundColor: theme.colors.success + '10',
+    backgroundColor: theme.colors.success + "10",
     borderRadius: 12,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
     borderWidth: 1,
-    borderColor: theme.colors.success + '30',
+    borderColor: theme.colors.success + "30",
   },
   newGuestCard: {
-    backgroundColor: theme.colors.info + '10',
+    backgroundColor: theme.colors.info + "10",
     borderRadius: 12,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
     borderWidth: 1,
-    borderColor: theme.colors.info + '30',
+    borderColor: theme.colors.info + "30",
   },
   guestHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: theme.spacing.sm,
   },
   foundGuestTitle: {
@@ -681,8 +710,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   stepButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: theme.spacing.lg,
   },
   primaryButton: {
@@ -693,12 +722,12 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.sm,
   },
   idPhotoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: theme.spacing.md,
     borderWidth: 2,
     borderColor: theme.colors.secondary,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     borderRadius: 8,
     marginBottom: theme.spacing.md,
   },
@@ -709,15 +738,15 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.medium,
   },
   idPhotoPreview: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: theme.spacing.md,
   },
   photoContainer: {
-    position: 'relative',
-    width: '100%',
+    position: "relative",
+    width: "100%",
   },
   idPhotoImage: {
-    width: '100%',
+    width: "100%",
     height: 180,
     borderRadius: 8,
     borderWidth: 1,
@@ -725,7 +754,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.gray[100],
   },
   removePhotoButton: {
-    position: 'absolute',
+    position: "absolute",
     top: theme.spacing.xs,
     right: theme.spacing.xs,
     backgroundColor: theme.colors.white,
@@ -746,14 +775,14 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.medium,
   },
   paymentMethod: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: theme.spacing.md,
   },
   paymentOption: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: theme.spacing.md,
     marginHorizontal: theme.spacing.xs,
     borderWidth: 2,
@@ -762,7 +791,7 @@ const styles = StyleSheet.create({
   },
   selectedPayment: {
     borderColor: theme.colors.secondary,
-    backgroundColor: theme.colors.secondary + '10',
+    backgroundColor: theme.colors.secondary + "10",
   },
   paymentText: {
     fontSize: theme.typography.fontSize.md,
@@ -779,6 +808,6 @@ const styles = StyleSheet.create({
   breakdownText: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.gray[600],
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
