@@ -21,7 +21,7 @@
 // const API_URL = 'https://api.affordaily.com/api/v1';
 
 // 5. For local .test domain (requires proper network configuration)
-const API_URL = "https://api.affordaily.com.com/api/v1";
+const API_URL = "https://api.affordaily.com/api/v1";
 
 // Export configuration
 export const config = {

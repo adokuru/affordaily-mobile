@@ -8,16 +8,12 @@
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.davidghena.affordailypos"
     },
     "android": {
       "package": "com.davidghena.affordailypos",
@@ -42,7 +38,12 @@
           "photosPermission": "The app needs access to your photos to let you select them.",
           "cameraPermission": "The app needs access to your camera to let you take photos."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-sharing",
+      "expo-splash-screen",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

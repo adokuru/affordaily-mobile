@@ -1,88 +1,50 @@
-import React from "react";
-import { Ionicons } from "@expo/vector-icons";
-import { Tabs, Redirect } from "expo-router";
-import { theme } from "@/constants/Theme";
+import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { Redirect } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof Ionicons>["name"];
-  color: string;
-}) {
-  return <Ionicons size={24} style={{ marginBottom: -3 }} {...props} />;
-}
+import { theme } from "@/constants/Theme";
 
 export default function TabLayout() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return null; // You could show a loading spinner here
-  }
-
-  // Redirect to auth if not authenticated
-  if (!isAuthenticated) {
-    return <Redirect href="/auth/login" />;
-  }
+  if (isLoading) return null;
+  if (!isAuthenticated) return <Redirect href="/auth/login" />;
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: theme.colors.secondary,
-        tabBarInactiveTintColor: theme.colors.gray[500],
-        tabBarStyle: {
-          backgroundColor: theme.colors.white,
-          borderTopColor: theme.colors.gray[200],
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 60,
-        },
-        headerStyle: {
-          backgroundColor: theme.colors.primary,
-        },
-        headerTintColor: theme.colors.black,
-        headerTitleStyle: {
-          fontWeight: "600",
-        },
-      }}
+    <NativeTabs
+      minimizeBehavior="onScrollDown"
+      tintColor={theme.colors.secondary}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Dashboard",
-          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="checkin"
-        options={{
-          title: "Check In",
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="person-add" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="checkout"
-        options={{
-          title: "Check Out",
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="person-remove" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="rooms"
-        options={{
-          title: "Rooms",
-          tabBarIcon: ({ color }) => <TabBarIcon name="bed" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="booking-summary"
-        options={{
-          href: null, // Hide from tab bar
-        }}
-      />
-    </Tabs>
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Label>Dashboard</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "house", selected: "house.fill" }}
+          md="home"
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="checkin">
+        <NativeTabs.Trigger.Label>Check In</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "person.badge.plus", selected: "person.badge.plus.fill" }}
+          md="person_add"
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="checkout">
+        <NativeTabs.Trigger.Label>Check Out</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "rectangle.portrait.and.arrow.right", selected: "rectangle.portrait.and.arrow.right.fill" }}
+          md="logout"
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="rooms">
+        <NativeTabs.Trigger.Label>Rooms</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "bed.double", selected: "bed.double.fill" }}
+          md="bed"
+        />
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }
