@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useRouter } from 'expo-router';
 import { apiService, User, LoginCredentials } from '../services/api';
 import { useUser, useLogin, useLogout } from '../hooks/useAuthQueries';
+import { useQueryClient } from '@tanstack/react-query';
+import { authKeys } from '../hooks/useAuthQueries';
 
 interface AuthContextType {
     user: User | null;
@@ -20,60 +22,53 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const router = useRouter();
+    const queryClient = useQueryClient();
 
-    // Use TanStack Query for user data
-    const { data: user, isLoading: userLoading, error: userError } = useUser();
+    // Wait for SecureStore token to be read before making any auth decisions.
+    // Without this, apiService.isAuthenticated() is always false on first render
+    // because the async SecureStore read hasn't completed yet.
+    const [tokenReady, setTokenReady] = useState(false);
+
+    useEffect(() => {
+        apiService.tokenReady.then(() => setTokenReady(true));
+    }, []);
+
+    // Only fetch user profile once the persisted token has been loaded
+    const { data: user, isLoading: userLoading, error: userError } = useUser(tokenReady);
     const loginMutation = useLogin();
     const logoutMutation = useLogout();
 
     const isAuthenticated = !!user && apiService.isAuthenticated();
-    const isLoading = userLoading || loginMutation.isPending || logoutMutation.isPending;
+    // Show loading until SecureStore is checked AND any in-flight requests finish
+    const isLoading = !tokenReady || userLoading || loginMutation.isPending || logoutMutation.isPending;
 
-    // Handle authentication errors
+    // If the server rejects our stored token, clear it so the user sees the login screen
     useEffect(() => {
         if (userError && apiService.isAuthenticated()) {
-            // Token is invalid, clear it
             apiService.clearToken();
+            queryClient.clear();
         }
-    }, [userError]);
+    }, [userError, queryClient]);
 
     const login = async (credentials: LoginCredentials) => {
-        try {
-            await loginMutation.mutateAsync(credentials);
-            // Navigate to main app
-            router.replace('/(tabs)');
-        } catch (error) {
-            throw error;
-        }
+        await loginMutation.mutateAsync(credentials);
+        router.replace('/(tabs)');
     };
 
     const logout = async () => {
         try {
             await logoutMutation.mutateAsync();
-            // Navigate to auth screen
-            router.replace('/auth/login');
-        } catch (error) {
-            // Even if API call fails, navigate to login
+        } finally {
             router.replace('/auth/login');
         }
     };
 
     const refreshUser = async () => {
-        // TanStack Query handles refetching automatically
-        // This method is kept for compatibility but doesn't need to do anything
-    };
-
-    const value: AuthContextType = {
-        user,
-        isAuthenticated,
-        isLoading,
-        login,
-        logout,
-        refreshUser,
+        await queryClient.invalidateQueries({ queryKey: authKeys.user() });
     };
 
     return (
-        <AuthContext.Provider value={value}>
+        <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

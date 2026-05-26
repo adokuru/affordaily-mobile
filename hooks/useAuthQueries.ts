@@ -7,12 +7,14 @@ export const authKeys = {
   user: () => [...authKeys.all, 'user'] as const,
 };
 
-// Get current user profile
-export const useUser = () => {
+// Get current user profile.
+// Pass tokenReady=true once SecureStore has finished loading the persisted token
+// so we don't falsely treat the user as logged-out on startup.
+export const useUser = (tokenReady: boolean = true) => {
   return useQuery({
     queryKey: authKeys.user(),
     queryFn: () => apiService.getProfile(),
-    enabled: apiService.isAuthenticated(),
+    enabled: tokenReady && apiService.isAuthenticated(),
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 };

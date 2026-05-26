@@ -1,4 +1,7 @@
+import * as SecureStore from "expo-secure-store";
 import { config } from "@/config/environment";
+
+const TOKEN_KEY = "auth_token";
 
 const BASE_URL = config.apiUrl;
 
@@ -108,41 +111,39 @@ class ApiService {
   private baseURL: string;
   private token: string | null = null;
 
+  /** Resolves once the persisted token has been read from SecureStore on startup. */
+  readonly tokenReady: Promise<void>;
+
   constructor(baseURL: string = BASE_URL) {
     this.baseURL = baseURL;
-    // Try to get token from storage on initialization
-    this.loadToken();
+    this.tokenReady = this.loadToken();
   }
 
-  private async loadToken() {
+  private async loadToken(): Promise<void> {
     try {
-      // You can use AsyncStorage or SecureStore here
-      // For now, we'll use a simple approach
-      const storedToken = await this.getStoredToken();
+      const storedToken = await SecureStore.getItemAsync(TOKEN_KEY);
       if (storedToken) {
-        this.setToken(storedToken);
+        this.token = storedToken;
       }
     } catch (error) {
-      console.log("No stored token found");
+      // SecureStore unavailable (e.g. web) — silently ignore
     }
   }
 
-  private async getStoredToken(): Promise<string | null> {
-    // This would typically use AsyncStorage or SecureStore
-    // For now, return null - you can implement this later
-    return null;
-  }
-
   private async storeToken(token: string): Promise<void> {
-    // This would typically use AsyncStorage or SecureStore
-    // For now, just store in memory - you can implement this later
-    console.log("Token stored:", token);
+    try {
+      await SecureStore.setItemAsync(TOKEN_KEY, token);
+    } catch (error) {
+      console.error("Failed to persist auth token:", error);
+    }
   }
 
   private async removeToken(): Promise<void> {
-    // This would typically use AsyncStorage or SecureStore
-    // For now, just clear from memory - you can implement this later
-    console.log("Token removed");
+    try {
+      await SecureStore.deleteItemAsync(TOKEN_KEY);
+    } catch (error) {
+      console.error("Failed to remove auth token:", error);
+    }
   }
 
   setToken(token: string) {
