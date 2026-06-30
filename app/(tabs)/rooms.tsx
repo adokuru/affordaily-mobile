@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ScrollView,
   View,
   Text,
   StyleSheet,
@@ -9,29 +10,22 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '@/constants/Theme';
 import { Card } from '@/components/ui';
-import { useRoomOccupancy } from '@/hooks/useRoomQueries';
-
-interface Room {
-  id: string;
-  number: string;
-  type: 'A' | 'B';
-  status: 'available' | 'occupied' | 'maintenance';
-  guestName?: string;
-  checkoutTime?: string;
-  visitors?: number;
-}
+import { useAvailableRooms, useRoomOccupancy } from '@/hooks/useRoomQueries';
 
 export default function RoomsScreen() {
   // Use TanStack Query to fetch room occupancy data
   const { data: occupancyData, isLoading, error } = useRoomOccupancy();
+  const { data: availableRoomsData } = useAvailableRooms();
 
   // Fallback to default stats if data is loading or unavailable
   const stats = occupancyData?.data || {
     total_rooms: 400,
     available_rooms: 200,
     occupied_rooms: 180,
-    maintenance_rooms: 20,
+    maintenance_rooms: 0,
   };
+  const maintenanceRooms = "maintenance_rooms" in stats ? stats.maintenance_rooms : 0;
+  const availableByType = availableRoomsData?.data;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -39,15 +33,6 @@ export default function RoomsScreen() {
       case 'occupied': return 'person';
       case 'maintenance': return 'construct';
       default: return 'help-circle';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'available': return theme.colors.success;
-      case 'occupied': return theme.colors.warning;
-      case 'maintenance': return theme.colors.error;
-      default: return theme.colors.gray[500];
     }
   };
 
@@ -79,8 +64,16 @@ export default function RoomsScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <Card>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.hero}>
+        <Text style={styles.heroEyebrow}>Room care</Text>
+        <Text style={styles.heroTitle}>{stats.available_rooms} rooms ready</Text>
+        <Text style={styles.heroSubtitle}>
+          {stats.occupied_rooms} occupied out of {stats.total_rooms} total spaces.
+        </Text>
+      </View>
+
+      <Card padding="lg">
         <Text style={styles.sectionTitle}>Room Status Overview</Text>
 
         <View style={styles.statsGrid}>
@@ -112,20 +105,75 @@ export default function RoomsScreen() {
             <View style={[styles.statIcon, { backgroundColor: theme.colors.error + '20' }]}>
               <Ionicons name={getStatusIcon('maintenance')} size={24} color={theme.colors.error} />
             </View>
-            <Text style={[styles.statValue, { color: theme.colors.error }]}>{stats.maintenance_rooms}</Text>
+            <Text style={[styles.statValue, { color: theme.colors.error }]}>{maintenanceRooms}</Text>
             <Text style={styles.statLabel}>Maintenance</Text>
           </View>
         </View>
       </Card>
-    </View>
+
+      {availableByType && (
+        <Card padding="lg">
+          <Text style={styles.sectionTitle}>Available Bed Spaces</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <View style={[styles.statIcon, { backgroundColor: theme.colors.info + '20' }]}>
+                <Ionicons name="bed" size={24} color={theme.colors.info} />
+              </View>
+              <Text style={[styles.statValue, { color: theme.colors.info }]}>
+                {availableByType.A.length}
+              </Text>
+              <Text style={styles.statLabel}>Type A</Text>
+            </View>
+
+            <View style={styles.statCard}>
+              <View style={[styles.statIcon, { backgroundColor: theme.colors.secondary + '20' }]}>
+                <Ionicons name="bed" size={24} color={theme.colors.secondary} />
+              </View>
+              <Text style={[styles.statValue, { color: theme.colors.secondary }]}>
+                {availableByType.B.length}
+              </Text>
+              <Text style={styles.statLabel}>Type B</Text>
+            </View>
+          </View>
+        </Card>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.gray[50],
+    backgroundColor: '#F4FAF1',
+  },
+  content: {
     padding: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
+  },
+  hero: {
+    padding: theme.spacing.lg,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
+  },
+  heroEyebrow: {
+    fontSize: theme.typography.fontSize.xs,
+    color: '#6B8E36',
+    fontWeight: theme.typography.fontWeight.bold,
+    marginBottom: theme.spacing.sm,
+  },
+  heroTitle: {
+    fontSize: theme.typography.fontSize.xxxl,
+    color: '#143B1D',
+    fontWeight: theme.typography.fontWeight.bold,
+    marginBottom: theme.spacing.sm,
+    fontVariant: ['tabular-nums'],
+  },
+  heroSubtitle: {
+    fontSize: theme.typography.fontSize.md,
+    color: '#55735C',
   },
   sectionTitle: {
     fontSize: theme.typography.fontSize.xl,
@@ -141,21 +189,13 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    backgroundColor: theme.colors.white,
-    borderRadius: 16,
+    backgroundColor: '#F9FCF4',
+    borderRadius: 8,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: theme.colors.gray[200],
-    shadowColor: theme.colors.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   statIcon: {
     width: 48,
@@ -170,6 +210,7 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.bold,
     color: theme.colors.black,
     marginBottom: theme.spacing.xs,
+    fontVariant: ['tabular-nums'],
   },
   statLabel: {
     fontSize: theme.typography.fontSize.sm,

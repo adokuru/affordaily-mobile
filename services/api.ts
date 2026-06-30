@@ -10,6 +10,22 @@ export interface LoginCredentials {
   password: string;
 }
 
+export interface ForgotPasswordData {
+  email: string;
+}
+
+export interface VerifyPasswordOtpData {
+  email: string;
+  otp: string;
+}
+
+export interface ResetPasswordData {
+  email: string;
+  otp: string;
+  password: string;
+  password_confirmation: string;
+}
+
 export interface User {
   id: number;
   name: string;
@@ -32,11 +48,25 @@ export interface ApiError {
   errors?: Record<string, string[]>;
 }
 
+export class ApiRequestError extends Error {
+  status: number;
+  errors?: Record<string, string[]>;
+
+  constructor(message: string, status: number, errors?: Record<string, string[]>) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.errors = errors;
+  }
+}
+
 export interface Guest {
   id: number;
   name: string;
   phone: string;
   email?: string;
+  id_photo_path?: string | null;
+  id_number?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -89,12 +119,15 @@ export interface Booking {
   key_returned?: boolean;
   created_at: string;
   updated_at: string;
+  visitor_passes?: Array<{
+    id: number;
+    is_active?: boolean;
+  }>;
 }
 
 export interface CreateBookingData {
   guest_name: string;
   guest_phone: string;
-  id_photo_path?: string;
   number_of_nights: number;
   preferred_bed_type: "A" | "B";
   payment_method: "cash" | "transfer";
@@ -105,6 +138,118 @@ export interface CreateBookingData {
 export interface BookingResponse {
   success: boolean;
   data: Booking;
+  message?: string;
+}
+
+export interface DashboardStatsResponse {
+  success: boolean;
+  data: {
+    total_rooms: number;
+    occupied_rooms: number;
+    available_rooms: number;
+    active_bookings: number;
+    pending_checkouts: number;
+    total_visitors: number;
+  };
+}
+
+export interface RoomOccupancyResponse {
+  success: boolean;
+  data: {
+    total_rooms: number;
+    occupied_rooms: number;
+    available_rooms: number;
+    occupancy_rate: number;
+    occupied_by_type: Record<"A" | "B", number>;
+    available_by_type: Record<"A" | "B", number>;
+  };
+}
+
+export interface AvailableRoomsResponse {
+  success: boolean;
+  data: {
+    A: Array<{
+      id: number;
+      room_number: string;
+      bed_type: "A";
+      is_available: boolean;
+    }>;
+    B: Array<{
+      id: number;
+      room_number: string;
+      bed_type: "B";
+      is_available: boolean;
+    }>;
+    total_available: number;
+  };
+}
+
+export interface RoomRatesResponse {
+  success: boolean;
+  data: Array<{
+    id: number;
+    bed_type: "A" | "B";
+    rate_per_night: number;
+    is_active: boolean;
+  }>;
+}
+
+export interface DashboardPaymentsResponse {
+  success: boolean;
+  data: unknown;
+  summary?: {
+    total_amount: number;
+    cash_total: number;
+    transfer_total: number;
+    confirmed_total: number;
+    pending_total: number;
+  };
+}
+
+export interface RollCallResponse {
+  success: boolean;
+  data: Booking[];
+}
+
+export interface ExtendBookingResponse extends BookingResponse {
+  additional_amount?: number;
+}
+
+export interface VisitorPass {
+  id: number;
+  visitor: {
+    id?: number;
+    name?: string;
+    phone?: string;
+    email?: string;
+    id_photo_path?: string;
+  };
+  booking: {
+    id?: number;
+    booking_reference?: string;
+    room_number?: string;
+  };
+  is_active: boolean;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  issued_by?: string | null;
+  created_at?: string | null;
+}
+
+export interface VisitorPassResponse {
+  success: boolean;
+  data: VisitorPass;
+}
+
+export interface VisitorPassListResponse {
+  success: boolean;
+  data: VisitorPass[];
+}
+
+export interface CreateVisitorPassData {
+  booking_id: number;
+  visitor_name: string;
+  visitor_phone: string;
 }
 
 class ApiService {
@@ -238,8 +383,10 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || `HTTP error! status: ${response.status}`
+        throw new ApiRequestError(
+          data.message || `HTTP error! status: ${response.status}`,
+          response.status,
+          data.errors
         );
       }
 
@@ -266,12 +413,105 @@ class ApiService {
     }
   }
 
+  private async multipartRequest<T>(
+    endpoint: string,
+    formData: FormData
+  ): Promise<T> {
+    const url = `${this.baseURL}${endpoint}`;
+
+    return new Promise<T>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", url);
+      xhr.timeout = config.apiTimeout;
+      xhr.setRequestHeader("Accept", "application/json");
+
+      if (this.token) {
+        xhr.setRequestHeader("Authorization", `Bearer ${this.token}`);
+      }
+
+      xhr.onload = () => {
+        let responseData: any = null;
+
+        try {
+          responseData = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        } catch {
+          responseData = xhr.responseText;
+        }
+
+        if (config.enableDebugLogs) {
+          console.log("API Request:", url);
+          console.log("Request method: POST");
+          console.log("Response status:", xhr.status);
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(responseData as T);
+          return;
+        }
+
+        reject(
+          new ApiRequestError(
+            responseData?.message || `HTTP error! status: ${xhr.status}`,
+            xhr.status,
+            responseData?.errors
+          )
+        );
+      };
+
+      xhr.onerror = () => {
+        reject(new Error("Network request failed"));
+      };
+
+      xhr.ontimeout = () => {
+        reject(new Error("Request timeout"));
+      };
+
+      xhr.send(formData);
+    });
+  }
+
   // Authentication methods
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     return this.request<AuthResponse>("/login", {
       method: "POST",
       body: JSON.stringify(credentials),
     });
+  }
+
+  async forgotPassword(
+    data: ForgotPasswordData
+  ): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(
+      "/password/forgot",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  async verifyPasswordOtp(
+    data: VerifyPasswordOtpData
+  ): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(
+      "/password/verify-otp",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  async resetPassword(
+    data: ResetPasswordData
+  ): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(
+      "/password/reset",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
   }
 
   async logout(): Promise<void> {
@@ -292,9 +532,17 @@ class ApiService {
 
   // Guest methods
   async searchGuestByPhone(phone: string): Promise<GuestSearchResponse> {
-    return this.request<GuestSearchResponse>(
-      `/guests/search/phone?phone=${encodeURIComponent(phone)}`
-    );
+    try {
+      return await this.request<GuestSearchResponse>(
+        `/guests/search/phone?phone=${encodeURIComponent(phone)}`
+      );
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 404) {
+        return { success: false, data: null };
+      }
+
+      throw error;
+    }
   }
 
   // Booking methods
@@ -303,10 +551,7 @@ class ApiService {
   ): Promise<BookingResponse> {
     // Allow caller to pass either FormData (with file) or JSON payload
     if (data instanceof FormData) {
-      return this.request<BookingResponse>("/bookings", {
-        method: "POST",
-        body: data,
-      });
+      return this.multipartRequest<BookingResponse>("/bookings", data);
     }
 
     return this.request<BookingResponse>("/bookings", {
@@ -323,6 +568,30 @@ class ApiService {
     return this.request<{ success: boolean; data: Booking[] }>(
       "/bookings/active"
     );
+  }
+
+  async getDashboardStats(): Promise<DashboardStatsResponse> {
+    return this.request<DashboardStatsResponse>("/dashboard/stats");
+  }
+
+  async getDashboardPayments(): Promise<DashboardPaymentsResponse> {
+    return this.request<DashboardPaymentsResponse>("/dashboard/payments");
+  }
+
+  async getRollCall(): Promise<RollCallResponse> {
+    return this.request<RollCallResponse>("/dashboard/roll-call");
+  }
+
+  async getRoomOccupancy(): Promise<RoomOccupancyResponse> {
+    return this.request<RoomOccupancyResponse>("/rooms/occupancy");
+  }
+
+  async getAvailableRooms(): Promise<AvailableRoomsResponse> {
+    return this.request<AvailableRoomsResponse>("/rooms/available");
+  }
+
+  async getRoomRates(): Promise<RoomRatesResponse> {
+    return this.request<RoomRatesResponse>("/rooms/rates");
   }
 
   async checkoutBooking(
@@ -342,11 +611,37 @@ class ApiService {
   async extendBooking(
     bookingId: number,
     additionalNights: number
-  ): Promise<BookingResponse> {
-    return this.request<BookingResponse>(`/bookings/${bookingId}/extend`, {
+  ): Promise<ExtendBookingResponse> {
+    return this.request<ExtendBookingResponse>(`/bookings/${bookingId}/extend`, {
       method: "POST",
       body: JSON.stringify({ additional_nights: additionalNights }),
     });
+  }
+
+  async createVisitorPass(
+    data: CreateVisitorPassData
+  ): Promise<VisitorPassResponse> {
+    return this.request<VisitorPassResponse>("/visitor-passes", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getActiveVisitorPassesForBooking(
+    bookingId: number
+  ): Promise<VisitorPassListResponse> {
+    return this.request<VisitorPassListResponse>(
+      `/visitor-passes/booking/${bookingId}/active`
+    );
+  }
+
+  async checkoutVisitorPass(visitorPassId: number): Promise<VisitorPassResponse> {
+    return this.request<VisitorPassResponse>(
+      `/visitor-passes/${visitorPassId}/checkout`,
+      {
+        method: "POST",
+      }
+    );
   }
 
   // Check if user is authenticated

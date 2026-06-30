@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiService, CreateBookingData } from '@/services/api';
+import { dashboardKeys } from './useDashboardQueries';
+import { roomKeys } from './useRoomQueries';
 
 // Query keys
 export const bookingKeys = {
@@ -35,11 +37,13 @@ export const useCreateBooking = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateBookingData) => apiService.createBooking(data),
+    mutationFn: (data: CreateBookingData | FormData) => apiService.createBooking(data),
     onSuccess: () => {
       // Invalidate and refetch bookings
       queryClient.invalidateQueries({ queryKey: bookingKeys.lists() });
       queryClient.invalidateQueries({ queryKey: bookingKeys.active() });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
+      queryClient.invalidateQueries({ queryKey: roomKeys.all });
     },
     onError: (error) => {
       console.error('Create booking failed:', error);
@@ -67,6 +71,8 @@ export const useCheckoutBooking = () => {
       // Invalidate and refetch bookings
       queryClient.invalidateQueries({ queryKey: bookingKeys.lists() });
       queryClient.invalidateQueries({ queryKey: bookingKeys.active() });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
+      queryClient.invalidateQueries({ queryKey: roomKeys.all });
     },
     onError: (error) => {
       console.error('Checkout booking failed:', error);
@@ -90,6 +96,7 @@ export const useExtendBooking = () => {
       // Invalidate and refetch bookings
       queryClient.invalidateQueries({ queryKey: bookingKeys.lists() });
       queryClient.invalidateQueries({ queryKey: bookingKeys.active() });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
     },
     onError: (error) => {
       console.error('Extend booking failed:', error);

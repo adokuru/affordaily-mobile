@@ -12,7 +12,7 @@ import { theme } from '../../constants/Theme';
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
@@ -67,17 +67,27 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 48,
   },
   primary: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#214E2B',
+    borderWidth: 1,
+    borderColor: '#214E2B',
   },
   secondary: {
-    backgroundColor: theme.colors.secondary,
+    backgroundColor: '#D0F253',
+    borderWidth: 1,
+    borderColor: '#C1E549',
   },
   outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: '#BFD8B8',
+  },
+  ghost: {
+    backgroundColor: '#F3F8EF',
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
   },
   small: {
     paddingVertical: theme.spacing.sm,
@@ -96,15 +106,19 @@ const styles = StyleSheet.create({
   },
   text: {
     fontWeight: theme.typography.fontWeight.semibold,
+    textAlign: 'center',
   },
   primaryText: {
-    color: theme.colors.black,
-  },
-  secondaryText: {
     color: theme.colors.white,
   },
+  secondaryText: {
+    color: '#143B1D',
+  },
   outlineText: {
-    color: theme.colors.primary,
+    color: '#214E2B',
+  },
+  ghostText: {
+    color: theme.colors.gray[800],
   },
   smallText: {
     fontSize: theme.typography.fontSize.sm,

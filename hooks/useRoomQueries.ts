@@ -14,15 +14,7 @@ export const roomKeys = {
 export const useRoomOccupancy = () => {
   return useQuery({
     queryKey: roomKeys.occupancy(),
-    queryFn: () => apiService.request<{
-      success: boolean;
-      data: {
-        total_rooms: number;
-        available_rooms: number;
-        occupied_rooms: number;
-        maintenance_rooms: number;
-      }
-    }>('/rooms/occupancy'),
+    queryFn: () => apiService.getRoomOccupancy(),
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchInterval: 60 * 1000, // Refetch every minute for real-time updates
   });
@@ -32,15 +24,7 @@ export const useRoomOccupancy = () => {
 export const useAvailableRooms = () => {
   return useQuery({
     queryKey: roomKeys.available(),
-    queryFn: () => apiService.request<{
-      success: boolean;
-      data: Array<{
-        id: number;
-        room_number: string;
-        bed_space: 'A' | 'B';
-        type: 'A' | 'B';
-      }>
-    }>('/rooms/available'),
+    queryFn: () => apiService.getAvailableRooms(),
     staleTime: 1 * 60 * 1000, // 1 minute
   });
 };
@@ -49,13 +33,7 @@ export const useAvailableRooms = () => {
 export const useRoomRates = () => {
   return useQuery({
     queryKey: roomKeys.rates(),
-    queryFn: () => apiService.request<{
-      success: boolean;
-      data: {
-        bed_space_a: number;
-        bed_space_b: number;
-      }
-    }>('/rooms/rates'),
+    queryFn: () => apiService.getRoomRates(),
     staleTime: 10 * 60 * 1000, // 10 minutes - rates don't change often
   });
 };

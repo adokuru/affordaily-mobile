@@ -14,13 +14,19 @@ import { router } from 'expo-router';
 import { theme } from '@/constants/Theme';
 import { Button, Card } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDashboardStats } from '@/hooks/useDashboardQueries';
+import {
+  useDashboardPayments,
+  useDashboardStats,
+  useRollCall,
+} from '@/hooks/useDashboardQueries';
 
 export default function DashboardScreen() {
   const { user, logout } = useAuth();
 
   // Use TanStack Query to fetch dashboard stats
   const { data: dashboardData, isLoading, error } = useDashboardStats();
+  const { data: paymentsData } = useDashboardPayments();
+  const { data: rollCallData } = useRollCall();
 
   // Fallback to default stats if data is loading or unavailable
   const stats = dashboardData?.data || {
@@ -33,6 +39,8 @@ export default function DashboardScreen() {
     today_revenue: 360000,
     monthly_revenue: 10800000,
   };
+  const paymentSummary = paymentsData?.summary;
+  const activeRollCallCount = rollCallData?.data.length ?? 0;
 
   const handleLogout = () => {
     Alert.alert(
@@ -52,43 +60,67 @@ export default function DashboardScreen() {
     );
   };
 
+  const occupancyRate =
+    stats.total_rooms > 0
+      ? Math.round((stats.occupied_rooms / stats.total_rooms) * 100)
+      : 0;
+
   const StatCard = ({ title, value, icon, color = theme.colors.primary }: any) => (
-    <Card style={styles.statCard}>
+    <View style={styles.statCard}>
       <View style={styles.statContent}>
-        <View style={[styles.statIcon, { backgroundColor: color }]}>
-          <Ionicons name={icon} size={24} color={theme.colors.white} />
+        <View style={[styles.statIcon, { backgroundColor: color + '18' }]}>
+          <Ionicons name={icon} size={22} color={color} />
         </View>
         <View style={styles.statText}>
           <Text style={styles.statValue}>{value}</Text>
           <Text style={styles.statTitle}>{title}</Text>
         </View>
       </View>
-    </Card>
+    </View>
   );
 
-  const QuickAction = ({ title, icon, onPress }: any) => (
+  const QuickAction = ({ title, icon, subtitle, onPress }: any) => (
     <TouchableOpacity style={styles.quickAction} onPress={onPress}>
       <View style={styles.quickActionIcon}>
-        <Ionicons name={icon} size={24} color={theme.colors.secondary} />
+        <Ionicons name={icon} size={22} color={theme.colors.primary} />
       </View>
-      <Text style={styles.quickActionText}>{title}</Text>
+      <View style={styles.quickActionCopy}>
+        <Text style={styles.quickActionText}>{title}</Text>
+        <Text style={styles.quickActionSubtext}>{subtitle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={theme.colors.gray[400]} />
     </TouchableOpacity>
   );
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
+            <Text style={styles.headerEyebrow}>Today at the front desk</Text>
             <Text style={styles.headerTitle}>Affordaily POS</Text>
-            <Text style={styles.headerSubtitle}>Property Management System</Text>
             {user && (
-              <Text style={styles.welcomeText}>Welcome, {user.name}</Text>
+              <Text style={styles.welcomeText}>Signed in as {user.name}</Text>
             )}
           </View>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={24} color={theme.colors.gray[600]} />
+            <Ionicons name="log-out-outline" size={22} color="#527B2E" />
           </TouchableOpacity>
+        </View>
+        <View style={styles.heroStats}>
+          <View>
+            <Text style={styles.heroNumber}>{occupancyRate}%</Text>
+            <Text style={styles.heroLabel}>Occupancy</Text>
+          </View>
+          <View style={styles.heroDivider} />
+          <View>
+            <Text style={styles.heroNumber}>{stats.available_rooms}</Text>
+            <Text style={styles.heroLabel}>Available now</Text>
+          </View>
         </View>
       </View>
 
@@ -103,19 +135,19 @@ export default function DashboardScreen() {
             title="Total Rooms"
             value={stats.total_rooms}
             icon="bed"
-            color={theme.colors.info}
+            color="#6C8F53"
           />
           <StatCard
             title="Occupied"
             value={stats.occupied_rooms}
             icon="person"
-            color={theme.colors.warning}
+            color="#B28B39"
           />
           <StatCard
             title="Available"
             value={stats.available_rooms}
             icon="checkmark-circle"
-            color={theme.colors.success}
+            color="#527B2E"
           />
           <StatCard
             title="Pending Checkout"
@@ -131,24 +163,58 @@ export default function DashboardScreen() {
         <View style={styles.quickActionsGrid}>
           <QuickAction
             title="Check In"
+            subtitle="Create a booking"
             icon="person-add"
             onPress={() => router.push('/(tabs)/checkin')}
           />
           <QuickAction
             title="Check Out"
+            subtitle="Close active stay"
             icon="person-remove"
             onPress={() => router.push('/(tabs)/checkout')}
           />
           <QuickAction
             title="Extend Stay"
+            subtitle="Add extra nights"
             icon="time"
-            onPress={() => { }}
+            onPress={() => router.push('/(tabs)/extend-stay')}
           />
           <QuickAction
             title="Visitor Pass"
+            subtitle="Issue or clear visitors"
             icon="card"
-            onPress={() => { }}
+            onPress={() => router.push('/(tabs)/visitor-pass')}
           />
+        </View>
+      </Card>
+
+      <Card>
+        <Text style={styles.sectionTitle}>Live Operations</Text>
+        <View style={styles.operationRow}>
+          <View style={styles.operationItem}>
+            <Text style={styles.operationValue}>{activeRollCallCount}</Text>
+            <Text style={styles.operationLabel}>Guests in roll call</Text>
+          </View>
+          <View style={styles.operationItem}>
+            <Text style={styles.operationValue}>
+              ₦{Number(paymentSummary?.total_amount ?? 0).toLocaleString()}
+            </Text>
+            <Text style={styles.operationLabel}>Payments recorded</Text>
+          </View>
+        </View>
+        <View style={styles.operationRow}>
+          <View style={styles.operationItem}>
+            <Text style={styles.operationValue}>
+              ₦{Number(paymentSummary?.cash_total ?? 0).toLocaleString()}
+            </Text>
+            <Text style={styles.operationLabel}>Cash</Text>
+          </View>
+          <View style={styles.operationItem}>
+            <Text style={styles.operationValue}>
+              ₦{Number(paymentSummary?.transfer_total ?? 0).toLocaleString()}
+            </Text>
+            <Text style={styles.operationLabel}>Transfer</Text>
+          </View>
         </View>
       </Card>
 
@@ -178,39 +244,77 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.gray[50],
+    backgroundColor: '#F4FAF1',
+  },
+  content: {
+    paddingBottom: theme.spacing.xl,
   },
   header: {
+    margin: theme.spacing.md,
     padding: theme.spacing.lg,
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray[200],
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: theme.spacing.xl,
+  },
+  headerEyebrow: {
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: '#6B8E36',
+    marginBottom: theme.spacing.xs,
+    letterSpacing: 1.2,
   },
   headerTitle: {
     fontSize: theme.typography.fontSize.xxxl,
     fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.black,
-    marginBottom: theme.spacing.xs,
-  },
-  headerSubtitle: {
-    fontSize: theme.typography.fontSize.md,
-    color: theme.colors.gray[600],
+    color: '#143B1D',
   },
   welcomeText: {
     fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.secondary,
+    color: '#55735C',
     marginTop: theme.spacing.xs,
     fontWeight: theme.typography.fontWeight.medium,
   },
   logoutButton: {
-    padding: theme.spacing.sm,
+    width: 42,
+    height: 42,
     borderRadius: 8,
-    backgroundColor: theme.colors.gray[100],
+    backgroundColor: '#F3F8EF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
+  },
+  heroStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: theme.spacing.md,
+    borderRadius: 8,
+    backgroundColor: '#F7FBF2',
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
+  },
+  heroNumber: {
+    fontSize: theme.typography.fontSize.xxxl,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: '#214E2B',
+    fontVariant: ['tabular-nums'],
+  },
+  heroLabel: {
+    fontSize: theme.typography.fontSize.sm,
+    color: '#55735C',
+  },
+  heroDivider: {
+    width: 1,
+    height: 46,
+    backgroundColor: '#DDEBD5',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -221,15 +325,20 @@ const styles = StyleSheet.create({
   statCard: {
     width: '48%',
     marginBottom: theme.spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
+    padding: theme.spacing.md,
   },
   statContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   statIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: theme.spacing.md,
@@ -240,11 +349,12 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: theme.typography.fontSize.xxl,
     fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.black,
+    color: '#143B1D',
+    fontVariant: ['tabular-nums'],
   },
   statTitle: {
     fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.gray[600],
+    color: '#55735C',
     marginTop: theme.spacing.xs,
   },
   sectionTitle: {
@@ -254,32 +364,63 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
   },
   quickAction: {
-    width: '48%',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: theme.spacing.md,
-    backgroundColor: theme.colors.gray[50],
+    backgroundColor: '#F7FBF2',
     borderRadius: 8,
-    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
   },
   quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.colors.white,
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: '#EAF5E2',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.sm,
+    marginRight: theme.spacing.md,
+  },
+  quickActionCopy: {
+    flex: 1,
   },
   quickActionText: {
+    fontSize: theme.typography.fontSize.md,
+    fontWeight: theme.typography.fontWeight.semibold,
+    color: '#143B1D',
+  },
+  quickActionSubtext: {
+    fontSize: theme.typography.fontSize.xs,
+    color: '#55735C',
+    marginTop: theme.spacing.xs,
+  },
+  operationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.sm,
+  },
+  operationItem: {
+    width: '48%',
+    padding: theme.spacing.md,
+    borderRadius: 8,
+    backgroundColor: '#F5FAEE',
+    borderWidth: 1,
+    borderColor: theme.colors.primary + '88',
+  },
+  operationValue: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.black,
+    marginBottom: theme.spacing.xs,
+    fontVariant: ['tabular-nums'],
+  },
+  operationLabel: {
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.medium,
-    color: theme.colors.gray[700],
-    textAlign: 'center',
+    color: theme.colors.gray[600],
   },
   alertCard: {
     backgroundColor: theme.colors.error + '10',

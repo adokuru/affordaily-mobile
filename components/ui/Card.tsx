@@ -23,15 +23,17 @@ export const Card: React.FC<CardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
     shadowColor: theme.colors.black,
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 8,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 4,
     marginBottom: theme.spacing.md,
   },
 });

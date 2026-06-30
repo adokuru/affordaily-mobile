@@ -15,8 +15,52 @@ import * as ImagePicker from "expo-image-picker";
 import { theme } from "@/constants/Theme";
 import { Button, Card, Input } from "@/components/ui";
 import { CreateBookingData } from "@/services/api";
+import { config } from "@/config/environment";
 import { useGuestSearch } from "@/hooks/useGuestQueries";
 import { useCreateBooking } from "@/hooks/useBookingQueries";
+import { useRoomRates } from "@/hooks/useRoomQueries";
+
+const getErrorMessage = (error: unknown) => {
+  if (
+    error &&
+    typeof error === "object" &&
+    "errors" in error &&
+    error.errors &&
+    typeof error.errors === "object"
+  ) {
+    const firstError = Object.values(
+      error.errors as Record<string, string[]>
+    ).flat()[0];
+
+    if (firstError) {
+      return firstError;
+    }
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Failed to process check-in. Please try again.";
+};
+
+const resolveStoredPhotoUri = (path?: string | null) => {
+  if (!path) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(path) || path.startsWith("file://")) {
+    return path;
+  }
+
+  const apiOrigin = config.apiUrl.replace(/\/api\/v\d+\/?$/, "");
+  const cleanPath = path.replace(/^\/+/, "");
+
+  return `${apiOrigin}/storage/${cleanPath}`;
+};
+
+const isLocalPhotoUri = (uri: string | null) =>
+  !!uri && (uri.startsWith("file://") || uri.startsWith("content://"));
 
 type CheckInFormData = {
   guestName: string;
@@ -26,6 +70,7 @@ type CheckInFormData = {
   paymentMethod: "cash" | "transfer";
   transferReference: string;
   amount: string;
+  bedType: "A" | "B";
 };
 
 type FormStep = "phone" | "guest-info" | "payment";
@@ -52,6 +97,7 @@ export default function CheckInScreen() {
     paymentMethod: "cash",
     transferReference: "",
     amount: "",
+    bedType: "A",
   });
 
   const [idPhotoUri, setIdPhotoUri] = useState<string | null>(null);
@@ -68,7 +114,8 @@ export default function CheckInScreen() {
     data: guestSearchResult,
     isLoading: guestSearchLoading,
     error: guestSearchError,
-  } = useGuestSearch(phoneNumber, phoneNumber.trim().length > 0);
+  } = useGuestSearch(phoneNumber, isValidPhone(phoneNumber));
+  const { data: roomRatesData } = useRoomRates();
   const createBookingMutation = useCreateBooking();
 
   const foundGuest = guestSearchResult?.data || null;
@@ -103,7 +150,7 @@ export default function CheckInScreen() {
     }
 
     if (photo) {
-      setIdPhotoUri(photo);
+      setIdPhotoUri(resolveStoredPhotoUri(photo));
     }
   }, [guest_name, guest_phone, id_photo_path, number_of_nights]);
 
@@ -114,8 +161,9 @@ export default function CheckInScreen() {
         ...prev,
         guestName: foundGuest.name,
         phone: foundGuest.phone,
-        idNumber: "", // API doesn't return ID number in search
+        idNumber: foundGuest.id_number || prev.idNumber,
       }));
+      setIdPhotoUri(resolveStoredPhotoUri(foundGuest.id_photo_path));
     } else if (phoneNumber && !guestSearchLoading && !guestSearchError) {
       // Guest not found, clear form data
       setFormData((prev) => ({
@@ -124,6 +172,7 @@ export default function CheckInScreen() {
         guestName: "",
         idNumber: "",
       }));
+      setIdPhotoUri(null);
     }
   }, [foundGuest, phoneNumber, guestSearchLoading, guestSearchError]);
 
@@ -132,7 +181,9 @@ export default function CheckInScreen() {
       Alert.alert("Missing Phone", "Please enter a phone number");
       return;
     }
-    // TanStack Query automatically handles the lookup when phoneNumber changes
+    if (!isValidPhone(phoneNumber)) {
+      Alert.alert("Invalid Phone", "Phone number must be 11 digits.");
+    }
   };
 
   const proceedToGuestInfo = () => {
@@ -245,9 +296,26 @@ export default function CheckInScreen() {
 
   const calculateAmount = () => {
     const nights = parseInt(formData.nights) || 1;
-    // Rate as per API documentation: 2000 naira per night for both bed types
-    const ratePerNight = 2000;
-    return nights * ratePerNight;
+    return nights * getRateForBedType(formData.bedType);
+  };
+
+  const getRateForBedType = (bedType: "A" | "B") =>
+    Number(
+      roomRatesData?.data.find((rate) => rate.bed_type === bedType)
+        ?.rate_per_night ?? 2000
+    );
+
+  const appendIdPhoto = (form: FormData, uri: string) => {
+    const filename = uri.split("/").pop() || "id-photo.jpg";
+    const ext = filename.split(".").pop()?.toLowerCase();
+    const mime =
+      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+
+    form.append("id_photo", {
+      uri,
+      name: filename,
+      type: mime,
+    } as any);
   };
 
   const handleCheckIn = async () => {
@@ -265,12 +333,14 @@ export default function CheckInScreen() {
       // Build payload: use FormData only when we have an image
       let payload: CreateBookingData | FormData;
 
-      if (idPhotoUri) {
+      const localIdPhotoUri = isLocalPhotoUri(idPhotoUri) ? idPhotoUri : null;
+
+      if (localIdPhotoUri) {
         const form = new FormData();
         form.append("guest_name", formData.guestName);
-        form.append("guest_phone", formData.phone);
+        form.append("guest_phone", phone);
         form.append("number_of_nights", String(parseInt(formData.nights) || 1));
-        form.append("preferred_bed_type", "A");
+        form.append("preferred_bed_type", formData.bedType);
         form.append("payment_method", formData.paymentMethod);
         form.append("payer_name", formData.guestName);
         if (
@@ -280,27 +350,15 @@ export default function CheckInScreen() {
           form.append("reference", formData.transferReference);
         }
 
-        const filename = idPhotoUri.split("/").pop() || "id-photo.jpg";
-        const ext = filename.split(".").pop()?.toLowerCase();
-        const mime =
-          ext === "png"
-            ? "image/png"
-            : ext === "webp"
-            ? "image/webp"
-            : "image/jpeg";
-        form.append("id_photo_path", {
-          uri: idPhotoUri,
-          name: filename,
-          type: mime,
-        } as any);
+        appendIdPhoto(form, localIdPhotoUri);
 
         payload = form;
       } else {
         payload = {
           guest_name: formData.guestName,
-          guest_phone: formData.phone,
+          guest_phone: phone,
           number_of_nights: parseInt(formData.nights) || 1,
-          preferred_bed_type: "A",
+          preferred_bed_type: formData.bedType,
           payment_method: formData.paymentMethod,
           payer_name: formData.guestName,
           reference:
@@ -310,14 +368,12 @@ export default function CheckInScreen() {
         };
       }
 
-      const response = await createBookingMutation.mutateAsync(payload as any);
+      const response = await createBookingMutation.mutateAsync(payload);
 
       if (response.success) {
         const booking = response.data;
-
-        // Navigate to booking summary screen
-        router.push({
-          pathname: "/(tabs)/booking-summary",
+        const summaryRoute = {
+          pathname: "/booking-summary",
           params: {
             id: booking.id?.toString() || "",
             booking_reference: booking.booking_reference || "",
@@ -334,14 +390,18 @@ export default function CheckInScreen() {
             amount_paid: booking.amount_paid?.toString() || "",
             remaining_balance: booking.remaining_balance?.toString() || "",
           },
-        });
+        } as const;
+
+        router.replace(summaryRoute);
+        return;
       }
-    } catch (error: any) {
-      console.error("Check-in failed:", error);
+
       Alert.alert(
         "Check-In Failed",
-        error.message || "Failed to process check-in. Please try again."
+        response.message || "The booking was not created. Please try again."
       );
+    } catch (error: unknown) {
+      Alert.alert("Check-In Failed", getErrorMessage(error));
     }
   };
 
@@ -516,6 +576,30 @@ export default function CheckInScreen() {
         keyboardType="numeric"
       />
 
+      <Text style={styles.inputLabel}>Bed Space Type</Text>
+      <View style={styles.paymentMethod}>
+        {(["A", "B"] as const).map((bedType) => {
+          const rate =
+            roomRatesData?.data.find((roomRate) => roomRate.bed_type === bedType)
+              ?.rate_per_night ?? 2000;
+
+          return (
+            <TouchableOpacity
+              key={bedType}
+              style={[
+                styles.paymentOption,
+                formData.bedType === bedType && styles.selectedPayment,
+              ]}
+              onPress={() => handleInputChange("bedType", bedType)}
+            >
+              <Ionicons name="bed" size={24} color={theme.colors.secondary} />
+              <Text style={styles.paymentText}>Type {bedType}</Text>
+              <Text style={styles.rateText}>₦{Number(rate).toLocaleString()}/night</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       <View style={styles.stepButtons}>
         <Button
           title="Back"
@@ -576,7 +660,9 @@ export default function CheckInScreen() {
 
       <View style={styles.amountBreakdown}>
         <Text style={styles.breakdownText}>
-          {formData.nights} nights × ₦2,000 = ₦{calculateAmount()}
+          {formData.nights} nights × ₦
+          {getRateForBedType(formData.bedType).toLocaleString()} = ₦
+          {calculateAmount().toLocaleString()}
         </Text>
       </View>
 
@@ -598,7 +684,18 @@ export default function CheckInScreen() {
   );
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.hero}>
+        <Text style={styles.heroEyebrow}>Guest intake</Text>
+        <Text style={styles.heroTitle}>Welcome a guest in</Text>
+        <Text style={styles.heroSubtitle}>
+          A guided check-in for finding guests, choosing a bed type, and settling payment.
+        </Text>
+      </View>
       {renderStepIndicator()}
 
       {currentStep === "phone" && renderPhoneStep()}
@@ -611,8 +708,36 @@ export default function CheckInScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.gray[50],
+    backgroundColor: '#F4FAF1',
+  },
+  content: {
     padding: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
+  },
+  hero: {
+    padding: theme.spacing.lg,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
+  },
+  heroEyebrow: {
+    fontSize: theme.typography.fontSize.xs,
+    color: '#6B8E36',
+    fontWeight: theme.typography.fontWeight.bold,
+    marginBottom: theme.spacing.sm,
+  },
+  heroTitle: {
+    fontSize: theme.typography.fontSize.xxl,
+    color: '#143B1D',
+    fontWeight: theme.typography.fontWeight.bold,
+    marginBottom: theme.spacing.sm,
+  },
+  heroSubtitle: {
+    fontSize: theme.typography.fontSize.sm,
+    color: '#55735C',
+    lineHeight: 20,
   },
   sectionTitle: {
     fontSize: theme.typography.fontSize.lg,
@@ -630,8 +755,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: theme.spacing.lg,
+    padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
   },
   stepItem: {
     alignItems: "center",
@@ -640,7 +769,7 @@ const styles = StyleSheet.create({
   stepIcon: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: theme.colors.gray[300],
     alignItems: "center",
     justifyContent: "center",
@@ -650,7 +779,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.secondary,
   },
   completedStepIcon: {
-    backgroundColor: theme.colors.success,
+    backgroundColor: '#D0F253',
   },
   stepLabel: {
     fontSize: theme.typography.fontSize.xs,
@@ -780,7 +909,6 @@ const styles = StyleSheet.create({
   },
   paymentOption: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     padding: theme.spacing.md,
@@ -796,8 +924,19 @@ const styles = StyleSheet.create({
   paymentText: {
     fontSize: theme.typography.fontSize.md,
     color: theme.colors.gray[700],
-    marginLeft: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
     fontWeight: theme.typography.fontWeight.medium,
+  },
+  inputLabel: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.gray[700],
+    marginBottom: theme.spacing.xs,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  rateText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.gray[600],
+    marginTop: theme.spacing.xs,
   },
   amountBreakdown: {
     padding: theme.spacing.sm,

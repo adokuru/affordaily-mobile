@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiService, LoginCredentials, User } from '@/services/api';
+import {
+  apiService,
+  ForgotPasswordData,
+  LoginCredentials,
+  ResetPasswordData,
+  User,
+  VerifyPasswordOtpData,
+} from '@/services/api';
 
 // Query keys
 export const authKeys = {
@@ -60,5 +67,24 @@ export const useLogout = () => {
       apiService.clearToken();
       queryClient.clear();
     },
+  });
+};
+
+export const useForgotPassword = () => {
+  return useMutation({
+    mutationFn: (data: ForgotPasswordData) => apiService.forgotPassword(data),
+  });
+};
+
+export const useVerifyPasswordOtp = () => {
+  return useMutation({
+    mutationFn: (data: VerifyPasswordOtpData) =>
+      apiService.verifyPasswordOtp(data),
+  });
+};
+
+export const useResetPassword = () => {
+  return useMutation({
+    mutationFn: (data: ResetPasswordData) => apiService.resetPassword(data),
   });
 };

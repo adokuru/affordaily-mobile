@@ -14,13 +14,33 @@ import * as Sharing from "expo-sharing";
 
 import { theme } from "@/constants/Theme";
 import { Button } from "@/components/ui";
-import type { Booking } from "@/services/api";
+
+type BookingSummary = {
+  id: string;
+  booking_reference: string;
+  guest: {
+    name: string;
+    phone: string;
+  };
+  room: {
+    room_number: string;
+    bed_type: string;
+  };
+  check_in_time: string;
+  check_out_time: string;
+  scheduled_checkout_time: string;
+  number_of_nights: string;
+  status: string;
+  total_amount: string;
+  amount_paid: string;
+  remaining_balance: string;
+};
 
 export default function BookingSummaryScreen() {
   const params = useLocalSearchParams();
 
   // Parse booking data from params
-  const booking = {
+  const booking: BookingSummary = {
     id: params.id as string,
     booking_reference: params.booking_reference as string,
     guest: {
@@ -83,12 +103,13 @@ export default function BookingSummaryScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Ionicons
-            name="checkmark-circle"
-            size={64}
-            color={theme.colors.success}
-          />
+          <View style={styles.successIcon}>
+            <Ionicons name="checkmark" size={34} color="#214E2B" />
+          </View>
           <Text style={styles.successTitle}>Check-In Successful</Text>
+          <Text style={styles.successSubtitle}>
+            The stay is confirmed and ready for the guest.
+          </Text>
         </View>
 
         {/* Booking Details Card */}
@@ -104,7 +125,7 @@ export default function BookingSummaryScreen() {
 
           <View style={styles.detailRow}>
             <View style={styles.detailLeft}>
-              <Ionicons name="hash" size={20} color={theme.colors.gray[500]} />
+              <Ionicons name="link" size={20} color={theme.colors.gray[500]} />
               <Text style={styles.detailLabel}>Reference</Text>
             </View>
             <Text style={styles.detailValue}>{booking.booking_reference}</Text>
@@ -229,16 +250,14 @@ export default function BookingSummaryScreen() {
         </View>
 
         <View style={styles.doneButtonContainer}>
-          <Button onPress={handleDone} style={styles.doneButton}>
-            Done
-          </Button>
+          <Button title="Done" onPress={handleDone} style={styles.doneButton} />
         </View>
       </ScrollView>
     </View>
   );
 }
 
-function generateHTMLContent(booking: typeof booking) {
+function generateHTMLContent(booking: BookingSummary) {
   return `
     <!DOCTYPE html>
     <html>
@@ -429,7 +448,7 @@ function generateHTMLContent(booking: typeof booking) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.gray[50],
+    backgroundColor: '#F4FAF1',
   },
   content: {
     flex: 1,
@@ -439,38 +458,48 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: theme.spacing.xl,
   },
+  successIcon: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#D0F253',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 6,
+    borderColor: '#EEF7EA',
+  },
   successTitle: {
-    fontSize: theme.typography.fontSize["2xl"],
+    fontSize: theme.typography.fontSize.xxl,
     fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.success,
+    color: '#143B1D',
     marginTop: theme.spacing.md,
+  },
+  successSubtitle: {
+    fontSize: theme.typography.fontSize.sm,
+    color: '#55735C',
+    marginTop: theme.spacing.xs,
+    textAlign: 'center',
   },
   card: {
     backgroundColor: theme.colors.white,
-    borderRadius: 12,
+    borderRadius: 8,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    shadowColor: theme.colors.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray[200],
+    borderBottomColor: '#DDEBD5',
     paddingBottom: theme.spacing.sm,
   },
   cardTitle: {
     fontSize: theme.typography.fontSize.lg,
     fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.black,
+    color: '#143B1D',
     marginLeft: theme.spacing.sm,
   },
   detailRow: {
@@ -479,7 +508,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray[100],
+    borderBottomColor: '#EEF4E9',
   },
   detailLeft: {
     flexDirection: "row",
@@ -488,17 +517,17 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: theme.typography.fontSize.md,
-    color: theme.colors.gray[600],
+    color: '#55735C',
     marginLeft: theme.spacing.sm,
   },
   detailValue: {
     fontSize: theme.typography.fontSize.md,
     fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.black,
+    color: '#143B1D',
     textAlign: "right",
   },
   paymentBadge: {
-    backgroundColor: theme.colors.secondary + "20",
+    backgroundColor: '#EEF7EA',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
     borderRadius: 6,
@@ -506,7 +535,7 @@ const styles = StyleSheet.create({
   paymentText: {
     fontSize: theme.typography.fontSize.sm,
     fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.secondary,
+    color: '#527B2E',
   },
   totalRow: {
     flexDirection: "row",
@@ -515,21 +544,21 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     paddingTop: theme.spacing.md,
     borderTopWidth: 2,
-    borderTopColor: theme.colors.secondary,
+    borderTopColor: '#D0F253',
   },
   totalLabel: {
     fontSize: theme.typography.fontSize.lg,
     fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.black,
+    color: '#143B1D',
   },
   totalValue: {
-    fontSize: theme.typography.fontSize["2xl"],
+    fontSize: theme.typography.fontSize.xxl,
     fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.secondary,
+    color: '#214E2B',
   },
   timeText: {
     fontSize: theme.typography.fontSize.md,
-    color: theme.colors.gray[700],
+    color: '#355D3D',
     fontWeight: theme.typography.fontWeight.medium,
   },
   actions: {
@@ -540,29 +569,23 @@ const styles = StyleSheet.create({
   actionButton: {
     alignItems: "center",
     padding: theme.spacing.md,
-    backgroundColor: theme.colors.white,
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
     minWidth: 100,
-    shadowColor: theme.colors.black,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#DDEBD5',
   },
   actionText: {
     marginTop: theme.spacing.xs,
     fontSize: theme.typography.fontSize.sm,
     fontWeight: theme.typography.fontWeight.medium,
-    color: theme.colors.secondary,
+    color: '#214E2B',
   },
   doneButtonContainer: {
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.xl,
   },
   doneButton: {
-    backgroundColor: theme.colors.success,
+    backgroundColor: '#214E2B',
   },
 });
